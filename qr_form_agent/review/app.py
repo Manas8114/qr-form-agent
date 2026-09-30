@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from qr_form_agent.browser.handoff import execute_continue_here_handoff
 from qr_form_agent.browser.stepper import launch_headful_takeover
 from qr_form_agent.config import settings
 from qr_form_agent.core.db import Database, JobRecord
@@ -21,11 +22,13 @@ from qr_form_agent.core.kill_switch import (
 from qr_form_agent.core.state_machine import JobStatus
 from qr_form_agent.fill.snapshot import compute_snapshot_hash
 from qr_form_agent.mapping.cache import MappingCache
+from qr_form_agent.profile.answers_bank import AnswersBank
 from qr_form_agent.profile.extractor import extract_text_from_pdf
 from qr_form_agent.profile.schema import Profile
 from qr_form_agent.profile.storage import load_verified_profile, save_verified_profile
 from qr_form_agent.profile.synthesizer import synthesize_profile
 from qr_form_agent.submit.submitter import submit_approved_job
+from qr_form_agent.tracker.tracker import ApplicationTracker
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +287,135 @@ def get_all_audit_logs(limit: int = 50):
                 for r in rows
             ]
         }
+
+
+
+@app.post("/api/jobs/bulk-approve")
+def bulk_approve_jobs(min_confidence: float = 0.85):
+    """Bulk approves high-confidence jobs in AWAITING_APPROVAL status."""
+    jobs = db.list_jobs(JobStatus.AWAITING_APPROVAL)
+    approved_ids = []
+
+    for j in jobs:
+        mapped_fields = j.stage_data.get("mapped_fields", [])
+        if not mapped_fields:
+            continue
+
+        confidences = [f.get("confidence", 0.0) for f in mapped_fields if f.get("value") is not None]
+        avg_conf = (sum(confidences) / len(confidences)) if confidences else 0.0
+        has_flagged = any(f.get("flagged_for_review", False) for f in mapped_fields)
+
+        if avg_conf >= min_confidence and not has_flagged:
+            field_selectors = j.stage_data.get("field_selectors", {})
+            approved_vals = {f["field_id"]: f["value"] for f in mapped_fields}
+            approved_hash = compute_snapshot_hash(field_selectors, approved_vals)
+
+            stage_data = j.stage_data
+            stage_data["approved_values"] = approved_vals
+
+            db.update_job_status(
+                job_id=j.id,
+                new_status=JobStatus.APPROVED,
+                actor="HUMAN_OPERATOR",
+                extra_data=stage_data,
+                approved_hash=approved_hash,
+            )
+            db.log_action(j.id, "BULK_APPROVED", "HUMAN_OPERATOR", {"avg_confidence": avg_conf})
+            approved_ids.append(j.id)
+
+    return {
+        "success": True,
+        "count": len(approved_ids),
+        "approved_job_ids": approved_ids,
+    }
+
+
+@app.get("/api/answers-bank")
+def get_answers_bank():
+    bank = AnswersBank()
+    return {"answers": [item.model_dump() for item in bank.all_answers()]}
+
+
+class AnswerUpdateRequest(BaseModel):
+    key: str
+    value: str
+    question_text: Optional[str] = None
+    category: Optional[str] = "general"
+
+
+@app.post("/api/answers-bank")
+def update_answers_bank(req: AnswerUpdateRequest):
+    bank = AnswersBank()
+    item = bank.set_answer(
+        key=req.key,
+        value=req.value,
+        question_text=req.question_text,
+        category=req.category or "general",
+    )
+    return {"success": True, "answer": item.model_dump()}
+
+
+@app.get("/api/reminders")
+def get_reminders():
+    jobs = db.list_jobs()
+    reminders = []
+    for j in jobs:
+        if j.deadline or j.opening_date or j.notes:
+            reminders.append({
+                "job_id": j.id,
+                "company": j.company,
+                "role": j.role,
+                "deadline": j.deadline,
+                "opening_date": j.opening_date,
+                "notes": j.notes,
+                "status": j.status.value,
+            })
+    return {"reminders": reminders}
+
+
+@app.get("/api/tracker/export/csv")
+def export_csv():
+    tracker = ApplicationTracker(db)
+    export_path = settings.data_dir / "applications.csv"
+    tracker.export_to_csv(export_path)
+    return FileResponse(
+        str(export_path),
+        media_type="text/csv",
+        filename="job_applications.csv",
+    )
+
+
+@app.get("/api/tracker/export/notion")
+def export_notion_csv():
+    tracker = ApplicationTracker(db)
+    export_path = settings.data_dir / "notion_applications.csv"
+    tracker.export_to_notion_csv(export_path)
+    return FileResponse(
+        str(export_path),
+        media_type="text/csv",
+        filename="notion_applications.csv",
+    )
+
+
+@app.get("/api/tracker/export/ics")
+def export_calendar_ics():
+    tracker = ApplicationTracker(db)
+    export_path = settings.data_dir / "reminders.ics"
+    tracker.export_reminders_ics(export_path)
+    return FileResponse(
+        str(export_path),
+        media_type="text/calendar",
+        filename="application_reminders.ics",
+    )
+
+
+@app.post("/api/jobs/{job_id}/handoff")
+def trigger_continue_here_handoff(job_id: str):
+    try:
+        success, job, msg = execute_continue_here_handoff(job_id, db, interactive_prompt=False)
+        return {"success": success, "job": job.model_dump(), "message": msg}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/", response_class=HTMLResponse)

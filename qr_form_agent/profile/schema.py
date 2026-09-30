@@ -37,6 +37,10 @@ class ProjectItem(BaseModel):
     technologies: List[str] = Field(default_factory=list, description="Technologies or tools used")
     link: Optional[str] = Field(default=None, description="URL to repository, demo, or publication")
 
+    @property
+    def title(self) -> Optional[str]:
+        return self.name
+
 
 class Profile(BaseModel):
     """
@@ -75,6 +79,18 @@ class Profile(BaseModel):
 
     # Attachment tracking
     resume_file_path: Optional[str] = Field(default=None, description="Local filesystem path to original resume file")
+
+    @property
+    def linkedin(self) -> Optional[str]:
+        return self.linkedin_url
+
+    @property
+    def github(self) -> Optional[str]:
+        return self.github_url
+
+    @property
+    def portfolio(self) -> Optional[str]:
+        return self.portfolio_url
 
     def to_flat_dict(self) -> Dict[str, Any]:
         """

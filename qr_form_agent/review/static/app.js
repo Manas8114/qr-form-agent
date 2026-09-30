@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupQrLaunchpad();
   setupProfileManager();
   setupAuditStream();
+  setupTrackerAndReminders();
+  setupAnswersBank();
 
   // Initial data fetches
   refreshAll();
@@ -46,6 +48,10 @@ function setupNavigationTabs() {
         loadProfileData();
       } else if (targetTabId === 'tab-audit') {
         loadAuditLogs();
+      } else if (targetTabId === 'tab-tracker') {
+        loadTrackerData();
+      } else if (targetTabId === 'tab-answers') {
+        loadAnswersBank();
       }
     });
   });
@@ -98,7 +104,7 @@ function setupKillSwitch() {
       updateKillSwitchUI(currentKillSwitchActive);
       alert(currentKillSwitchActive ? '🛑 Global Kill Switch ACTIVATED.' : '✅ Kill Switch DEACTIVATED.');
     } catch (err) {
-      alert('Error communicating with kill switch endpoint.');
+      alert('Error updating kill switch: ' + err);
     }
   };
 }
@@ -107,7 +113,7 @@ function updateKillSwitchUI(isActive) {
   const btn = document.getElementById('kill-switch-toggle');
   if (isActive) {
     btn.classList.add('active');
-    btn.innerHTML = '<span>🛑 KILL SWITCH: ACTIVE</span>';
+    btn.innerHTML = '<span>🛑 Kill Switch: ACTIVE</span>';
   } else {
     btn.classList.remove('active');
     btn.innerHTML = '<span>🛑 Kill Switch: OFF</span>';
@@ -115,7 +121,7 @@ function updateKillSwitchUI(isActive) {
 }
 
 // -------------------------------------------------------------
-// View 1: Form Review Dashboard
+// Discovered Jobs & Form Review
 // -------------------------------------------------------------
 
 async function loadJobs() {
@@ -125,8 +131,12 @@ async function loadJobs() {
     const data = await res.json();
     currentJobs = data.jobs || [];
     renderJobsList();
+
     if (selectedJobId) {
-      selectJob(selectedJobId);
+      const exists = currentJobs.some(j => j.id === selectedJobId);
+      if (!exists && currentJobs.length > 0) {
+        selectJob(currentJobs[0].id);
+      }
     } else if (currentJobs.length > 0) {
       selectJob(currentJobs[0].id);
     }
@@ -138,8 +148,9 @@ async function loadJobs() {
 function renderJobsList() {
   const list = document.getElementById('jobs-list');
   list.innerHTML = '';
+
   if (currentJobs.length === 0) {
-    list.innerHTML = '<li class="empty-jobs-notice">No jobs registered.</li>';
+    list.innerHTML = '<li class="empty-list-notice">No jobs discovered yet.</li>';
     return;
   }
 
@@ -148,10 +159,12 @@ function renderJobsList() {
     li.className = `job-item ${job.id === selectedJobId ? 'active' : ''}`;
     li.onclick = () => selectJob(job.id);
 
+    const titleText = (job.company || job.domain) + (job.role ? ` (${job.role})` : '');
+
     li.innerHTML = `
-      <div class="job-item-domain">${escapeHtml(job.domain)}</div>
+      <div class="job-item-domain">${escapeHtml(titleText)}</div>
       <div class="job-item-meta">
-        <span>${new Date(job.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        <span>${escapeHtml((job.platform || 'generic').toUpperCase())}</span>
         <span class="status-pill status-${job.status}">${job.status}</span>
       </div>
     `;
@@ -174,6 +187,11 @@ async function selectJob(jobId) {
     detailsEl.style.display = 'flex';
 
     document.getElementById('job-domain').innerText = job.domain;
+    document.getElementById('job-platform-badge').innerText = (job.platform || 'generic').toUpperCase();
+
+    const compRole = (job.company || '') + (job.role ? ' — ' + job.role : '');
+    document.getElementById('job-company-role').innerText = compRole || 'Job Posting';
+
     const urlLink = document.getElementById('job-url');
     urlLink.innerText = job.url;
     urlLink.href = job.url;
@@ -190,16 +208,25 @@ async function selectJob(jobId) {
       hashEl.innerText = 'Pending approval';
     }
 
-    // Render Fields
+    // Render Fields: Sort low-confidence fields first!
     const fields = (job.stage_data && job.stage_data.mapped_fields) || [];
     document.getElementById('field-count').innerText = `${fields.length} fields`;
     const tbody = document.getElementById('fields-tbody');
     tbody.innerHTML = '';
 
-    fields.forEach(f => {
+    const sortedFields = [...fields].sort((a, b) => {
+      const aFlag = a.flagged_for_review ? 1 : 0;
+      const bFlag = b.flagged_for_review ? 1 : 0;
+      if (bFlag !== aFlag) return bFlag - aFlag;
+      return (a.confidence || 0) - (b.confidence || 0);
+    });
+
+    sortedFields.forEach(f => {
       const tr = document.createElement('tr');
-      const confClass = f.confidence >= 0.9 ? 'conf-high' : (f.confidence >= 0.75 ? 'conf-med' : 'conf-low');
+      if (f.flagged_for_review) tr.classList.add('flagged-row');
+
       const confPercent = Math.round((f.confidence || 0) * 100);
+      const confClass = confPercent >= 85 ? 'conf-high' : (confPercent >= 70 ? 'conf-med' : 'conf-low');
 
       tr.innerHTML = `
         <td>
@@ -233,7 +260,7 @@ async function selectJob(jobId) {
     const approveBtn = document.getElementById('approve-btn');
     const rejectBtn = document.getElementById('reject-btn');
     const submitBtn = document.getElementById('submit-btn');
-    const takeoverBtn = document.getElementById('takeover-btn');
+    const handoffBtn = document.getElementById('handoff-btn');
     const notice = document.getElementById('action-notice');
 
     const canApprove = (job.status === 'AWAITING_APPROVAL' || job.status === 'NEEDS_HUMAN');
@@ -246,12 +273,12 @@ async function selectJob(jobId) {
     submitBtn.style.display = isApproved ? 'inline-flex' : 'none';
 
     const isNeedsHuman = (job.status === 'NEEDS_HUMAN');
-    takeoverBtn.style.display = isNeedsHuman ? 'inline-flex' : 'none';
+    handoffBtn.style.display = isNeedsHuman ? 'inline-flex' : 'none';
 
     if (isApproved) {
       notice.innerText = '✅ Form has been cryptographically approved. Ready for verified submission.';
     } else if (isNeedsHuman) {
-      notice.innerText = '⚠️ Needs Human Intervention (CAPTCHA, Login, or sensitive fields detected).';
+      notice.innerText = '⚠️ Needs Human Intervention (Login wall, CAPTCHA, or sensitive fields detected). Click Continue Here.';
     } else if (job.status === 'SUBMITTED') {
       notice.innerText = '🎉 Form was successfully verified and submitted.';
     } else {
@@ -259,99 +286,123 @@ async function selectJob(jobId) {
     }
 
   } catch (err) {
-    console.error('Failed to load job details:', err);
+    console.error('Error selecting job:', err);
   }
 }
 
 function setupReviewControls() {
+  document.getElementById('refresh-btn').onclick = () => refreshAll();
+
+  // Bulk Approve Button
+  const bulkBtn = document.getElementById('bulk-approve-btn');
+  if (bulkBtn) {
+    bulkBtn.onclick = async () => {
+      if (!confirm('Bulk approve all jobs with >= 85% confidence and no security alerts?')) return;
+      try {
+        const res = await fetch('/api/jobs/bulk-approve', { method: 'POST' });
+        const data = await res.json();
+        alert(`⚡ Bulk approved ${data.count} jobs successfully!`);
+        refreshAll();
+      } catch (err) {
+        alert('Bulk approve failed: ' + err);
+      }
+    };
+  }
+
+  // Approve Button
   document.getElementById('approve-btn').onclick = async () => {
     if (!selectedJobId) return;
-    const inputs = document.querySelectorAll('#fields-tbody input.field-input');
-    const edited = {};
-    inputs.forEach(input => {
-      edited[input.getAttribute('data-field-id')] = input.value;
+
+    const editedFields = {};
+    document.querySelectorAll('.field-input').forEach(input => {
+      const fId = input.getAttribute('data-field-id');
+      editedFields[fId] = input.value;
     });
 
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ edited_fields: edited })
+        body: JSON.stringify({ edited_fields: editedFields }),
       });
-      if (res.ok) {
-        await loadJobs();
-        loadStats();
-        alert('Job approved and cryptographic snapshot locked!');
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Job ${selectedJobId.slice(0, 8)} approved!\nSHA-256: ${data.approved_snapshot_hash.slice(0, 16)}...`);
+        refreshAll();
+        selectJob(selectedJobId);
       } else {
-        const err = await res.json();
-        alert('Approval error: ' + (err.detail || 'Failed'));
+        alert('Approval failed: ' + (data.detail || 'Unknown error'));
       }
     } catch (err) {
-      alert('Network error approving job');
+      alert('Error during approval: ' + err);
     }
   };
 
+  // Reject Button
   document.getElementById('reject-btn').onclick = async () => {
     if (!selectedJobId) return;
-    const reason = prompt('Reason for rejection:', 'Rejected by human reviewer');
+    const reason = prompt('Reason for rejection:', 'Rejected by operator');
     if (reason === null) return;
 
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}/reject?reason=${encodeURIComponent(reason)}`, {
-        method: 'POST'
+        method: 'POST',
       });
-      if (res.ok) {
-        await loadJobs();
-        loadStats();
+      const data = await res.json();
+      if (data.success) {
+        refreshAll();
+        selectJob(selectedJobId);
       }
     } catch (err) {
-      alert('Error rejecting job');
+      alert('Error rejecting job: ' + err);
     }
   };
 
+  // Submit Button
   document.getElementById('submit-btn').onclick = async () => {
     if (!selectedJobId) return;
-    const confirmSubmit = confirm('Execute verified submission? Current live DOM field hash will be validated.');
-    if (!confirmSubmit) return;
+    if (!confirm('SUBMIT FORM? This will perform verified submission to the target career portal.')) return;
 
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dry_run: false })
+        body: JSON.stringify({ dry_run: false }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        alert('Form successfully submitted! Receipt: ' + (data.receipt_text || 'OK'));
-        await loadJobs();
-        loadStats();
+      if (data.success) {
+        alert(`🎉 SUBMISSION SUCCESSFUL!\nReceipt: ${data.receipt_text || 'Completed'}`);
+        refreshAll();
+        selectJob(selectedJobId);
       } else {
-        alert('Submission failed: ' + (data.detail || data.error_message || 'Verification failure'));
+        alert('❌ Submission aborted: ' + (data.error_message || 'Verification failure'));
       }
     } catch (err) {
-      alert('Error during submission request: ' + err);
+      alert('Submission error: ' + err);
     }
   };
 
-  document.getElementById('takeover-btn').onclick = async () => {
-    if (!selectedJobId) return;
-    alert('Launching interactive headful browser on your display. Solve the CAPTCHA or Login, then close the window.');
-    try {
-      await fetch(`/api/jobs/${selectedJobId}/takeover`, { method: 'POST' });
-      await loadJobs();
-    } catch (err) {
-      alert('Error triggering headful takeover.');
-    }
-  };
-
-  document.getElementById('refresh-btn').onclick = () => {
-    loadJobs();
-    loadStats();
-  };
+  // Handoff Button
+  const handoffBtn = document.getElementById('handoff-btn');
+  if (handoffBtn) {
+    handoffBtn.onclick = async () => {
+      if (!selectedJobId) return;
+      alert("Launching interactive headful takeover. Complete login / CAPTCHA in the browser window.");
+      try {
+        const res = await fetch(`/api/jobs/${selectedJobId}/handoff`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || "Handoff complete.");
+        refreshAll();
+        selectJob(selectedJobId);
+      } catch (err) {
+        alert("Handoff error: " + err);
+      }
+    };
+  }
 }
 
 // -------------------------------------------------------------
-// View 2: QR Launchpad
+// QR Launchpad (Mobile & Camera Ready)
 // -------------------------------------------------------------
 
 function setupQrLaunchpad() {
@@ -366,43 +417,41 @@ function setupQrLaunchpad() {
 
   dropzone.ondragover = (e) => {
     e.preventDefault();
-    dropzone.classList.add('dragover');
+    dropzone.classList.add('drag-over');
   };
-
-  dropzone.ondragleave = () => {
-    dropzone.classList.remove('dragover');
-  };
-
+  dropzone.ondragleave = () => dropzone.classList.remove('drag-over');
   dropzone.ondrop = (e) => {
     e.preventDefault();
-    dropzone.classList.remove('dragover');
+    dropzone.classList.remove('drag-over');
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleQrFile(e.dataTransfer.files[0]);
+      handleFileSelected(e.dataTransfer.files[0]);
     }
   };
 
   fileInput.onchange = () => {
     if (fileInput.files && fileInput.files[0]) {
-      handleQrFile(fileInput.files[0]);
+      handleFileSelected(fileInput.files[0]);
     }
   };
 
-  function handleQrFile(file) {
+  function handleFileSelected(file) {
     selectedQrFile = file;
-    filenameEl.innerText = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+    filenameEl.innerText = file.name;
     previewBox.style.display = 'flex';
   }
 
   startBtn.onclick = async () => {
     if (!selectedQrFile) return;
-    startBtn.disabled = true;
-    startBtn.innerText = '⏳ Processing QR Codes...';
-    logBox.style.display = 'block';
-    logBox.innerText = 'Scanning image with zxing-cpp & running URL safety checks...\n';
 
+    startBtn.disabled = true;
+    startBtn.innerText = '⏳ Processing QR Codes & Triaging...';
+    logBox.style.display = 'block';
+    logBox.innerText = `[PIPELINE START] Scanning ${selectedQrFile.name} for QR codes...\n`;
+
+    const autoConfirm = document.getElementById('auto-confirm-cb').checked;
     const formData = new FormData();
     formData.append('file', selectedQrFile);
-    formData.append('auto_confirm', document.getElementById('auto-confirm-cb').checked ? 'true' : 'false');
+    formData.append('auto_confirm', autoConfirm ? 'true' : 'false');
 
     try {
       const res = await fetch('/api/pipeline/scan-image', {
@@ -410,18 +459,19 @@ function setupQrLaunchpad() {
         body: formData,
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        logBox.innerText += `✓ Detection completed! Created ${data.count} form job(s):\n`;
-        (data.jobs_created || []).forEach(id => {
-          logBox.innerText += `  • Job ID: ${id}\n`;
-        });
-        logBox.innerText += `\nSwitch to the "Form Review" tab to inspect and approve.`;
+
+      if (data.success) {
+        logBox.innerText += `[SUCCESS] Decoded barcodes & created ${data.count} jobs.\n`;
+        logBox.innerText += `Jobs Created: ${data.jobs_created.join(', ')}\n`;
         refreshAll();
+        setTimeout(() => {
+          document.getElementById('tab-btn-review').click();
+        }, 1500);
       } else {
-        logBox.innerText += `❌ Pipeline failed: ${data.detail || 'Unknown error'}\n`;
+        logBox.innerText += `[ERROR] Pipeline error: ${data.detail || 'Unknown failure'}\n`;
       }
     } catch (err) {
-      logBox.innerText += `❌ Request error: ${err}\n`;
+      logBox.innerText += `[FAILED] Network error: ${err}\n`;
     } finally {
       startBtn.disabled = false;
       startBtn.innerText = '▶ Process QR Codes & Pre-Fill';
@@ -430,46 +480,144 @@ function setupQrLaunchpad() {
 }
 
 // -------------------------------------------------------------
-// View 3: Candidate Profile Manager
+// Tracker & Deadlines View
 // -------------------------------------------------------------
 
-async function loadProfileData() {
+function setupTrackerAndReminders() {
+  // Tracker loaded when tab clicked
+}
+
+async function loadTrackerData() {
   try {
-    const res = await fetch('/api/profile');
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.exists && data.profile) {
-      const p = data.profile;
-      document.getElementById('prof-full-name').value = p.full_name || '';
-      document.getElementById('prof-email').value = p.email || '';
-      document.getElementById('prof-phone').value = p.phone || '';
-      document.getElementById('prof-address').value = p.address || '';
-      document.getElementById('prof-city').value = p.city || '';
-      document.getElementById('prof-state').value = p.state || '';
-      document.getElementById('prof-postal').value = p.postal_code || '';
-      document.getElementById('prof-country').value = p.country || '';
-      document.getElementById('prof-linkedin').value = p.linkedin_url || '';
-      document.getElementById('prof-github').value = p.github_url || '';
-      document.getElementById('prof-portfolio').value = p.portfolio_url || '';
-      document.getElementById('prof-skills').value = (p.skills || []).join(', ');
-      document.getElementById('prof-summary').value = p.summary || '';
+    // 1. Load reminders
+    const remRes = await fetch('/api/reminders');
+    if (remRes.ok) {
+      const remData = await remRes.json();
+      const listEl = document.getElementById('reminder-list');
+      listEl.innerHTML = '';
+      const reminders = remData.reminders || [];
+      if (reminders.length === 0) {
+        listEl.innerHTML = '<div class="text-muted-desc">No active deadline or opening reminders.</div>';
+      } else {
+        reminders.forEach(r => {
+          const div = document.createElement('div');
+          div.className = 'reminder-item';
+          const type = r.opening_date ? 'OPENING' : 'DEADLINE';
+          div.innerHTML = `
+            <div>
+              <span class="reminder-company">${escapeHtml(r.company || 'Job')}</span>
+              <span style="color: #94a3b8;">(${escapeHtml(r.role || 'Role')})</span>
+              <div class="reminder-notice">${escapeHtml(r.notes || (type + ': ' + (r.opening_date || r.deadline)))}</div>
+            </div>
+            <span class="status-pill status-${r.status}">${r.status}</span>
+          `;
+          listEl.appendChild(div);
+        });
+      }
+    }
+
+    // 2. Load tracker table
+    const jobsRes = await fetch('/api/jobs');
+    if (jobsRes.ok) {
+      const jobsData = await jobsRes.json();
+      const tbody = document.getElementById('tracker-tbody');
+      tbody.innerHTML = '';
+      const jobs = jobsData.jobs || [];
+      jobs.forEach(j => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: 600; color: #fff;">${escapeHtml(j.company || 'Unknown')}</td>
+          <td>${escapeHtml(j.role || 'Unknown')}</td>
+          <td><span class="platform-badge">${escapeHtml((j.platform || 'generic').toUpperCase())}</span></td>
+          <td><span class="status-pill status-${j.status}">${j.status}</span></td>
+          <td>${escapeHtml(j.deadline || j.opening_date || '-')}</td>
+          <td>${escapeHtml(j.applied_date ? new Date(j.applied_date).toLocaleDateString() : '-')}</td>
+          <td><a href="${escapeHtml(j.url)}" target="_blank" class="job-url-link">${escapeHtml(j.domain)}</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
   } catch (err) {
-    console.error('Failed to load profile data:', err);
+    console.debug('Failed loading tracker:', err);
   }
 }
 
+// -------------------------------------------------------------
+// Saved Answers Bank View
+// -------------------------------------------------------------
+
+function setupAnswersBank() {
+  // Handlers for answers bank
+}
+
+async function loadAnswersBank() {
+  try {
+    const res = await fetch('/api/answers-bank');
+    if (!res.ok) return;
+    const data = await res.json();
+    const tbody = document.getElementById('answers-tbody');
+    tbody.innerHTML = '';
+
+    const answers = data.answers || [];
+    answers.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-family: var(--font-mono); color: #38bdf8;">${escapeHtml(item.key)}</td>
+        <td><span class="status-pill status-QUEUED">${escapeHtml(item.category)}</span></td>
+        <td>${escapeHtml(item.question_text)}</td>
+        <td>
+          <input type="text" class="form-control ans-val-input" data-key="${escapeHtml(item.key)}" value="${escapeHtml(item.value)}" />
+        </td>
+        <td>
+          <button class="btn btn-refresh btn-sm save-ans-btn" data-key="${escapeHtml(item.key)}">💾 Save</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Save buttons
+    tbody.querySelectorAll('.save-ans-btn').forEach(btn => {
+      btn.onclick = async () => {
+        const k = btn.getAttribute('data-key');
+        const input = tbody.querySelector(`.ans-val-input[data-key="${k}"]`);
+        if (!input) return;
+        try {
+          const updateRes = await fetch('/api/answers-bank', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: k, value: input.value }),
+          });
+          const updateData = await updateRes.json();
+          if (updateData.success) {
+            btn.innerText = '✔ Saved';
+            setTimeout(() => { btn.innerText = '💾 Save'; }, 1500);
+          }
+        } catch (e) {
+          alert('Failed saving answer: ' + e);
+        }
+      };
+    });
+
+  } catch (err) {
+    console.debug('Failed loading answers bank:', err);
+  }
+}
+
+// -------------------------------------------------------------
+// Candidate Profile Management
+// -------------------------------------------------------------
+
 function setupProfileManager() {
+  const resumeInput = document.getElementById('resume-file-input');
   const uploadBtn = document.getElementById('upload-resume-btn');
-  const fileInput = document.getElementById('resume-file-input');
   const saveBtn = document.getElementById('save-profile-btn');
 
-  uploadBtn.onclick = () => fileInput.click();
+  uploadBtn.onclick = () => resumeInput.click();
 
-  fileInput.onchange = async () => {
-    if (!fileInput.files || !fileInput.files[0]) return;
-    const file = fileInput.files[0];
-    uploadBtn.innerText = '⏳ Parsing Resume PDF...';
+  resumeInput.onchange = async () => {
+    if (!resumeInput.files || !resumeInput.files[0]) return;
+    const file = resumeInput.files[0];
+    uploadBtn.innerText = '⏳ Extracting Resume...';
     uploadBtn.disabled = true;
 
     const formData = new FormData();
@@ -481,14 +629,14 @@ function setupProfileManager() {
         body: formData,
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        alert('Resume parsed and verified profile populated!');
-        loadProfileData();
+      if (data.success) {
+        alert('✅ Resume parsed and profile updated!');
+        populateProfileForm(data.profile);
       } else {
-        alert('Error parsing resume: ' + (data.detail || 'Failed'));
+        alert('Resume extraction failed: ' + (data.detail || 'Unknown error'));
       }
     } catch (err) {
-      alert('Network error uploading resume: ' + err);
+      alert('Error uploading resume: ' + err);
     } finally {
       uploadBtn.innerText = '📄 Upload New Resume (PDF)';
       uploadBtn.disabled = false;
@@ -496,36 +644,16 @@ function setupProfileManager() {
   };
 
   saveBtn.onclick = async () => {
-    const skillsRaw = document.getElementById('prof-skills').value;
-    const skillsList = skillsRaw.split(',').map(s => s.trim()).filter(Boolean);
-
-    const payload = {
-      full_name: document.getElementById('prof-full-name').value || null,
-      email: document.getElementById('prof-email').value || null,
-      phone: document.getElementById('prof-phone').value || null,
-      address: document.getElementById('prof-address').value || null,
-      city: document.getElementById('prof-city').value || null,
-      state: document.getElementById('prof-state').value || null,
-      postal_code: document.getElementById('prof-postal').value || null,
-      country: document.getElementById('prof-country').value || null,
-      linkedin_url: document.getElementById('prof-linkedin').value || null,
-      github_url: document.getElementById('prof-github').value || null,
-      portfolio_url: document.getElementById('prof-portfolio').value || null,
-      skills: skillsList,
-      summary: document.getElementById('prof-summary').value || null,
-    };
-
+    const profileData = getProfileFormData();
     try {
       const res = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(profileData),
       });
-      if (res.ok) {
-        alert('Verified candidate profile successfully saved!');
-      } else {
-        const err = await res.json();
-        alert('Save error: ' + (err.detail || 'Failed'));
+      const data = await res.json();
+      if (data.success) {
+        alert('💾 Verified profile successfully saved!');
       }
     } catch (err) {
       alert('Error saving profile: ' + err);
@@ -533,9 +661,63 @@ function setupProfileManager() {
   };
 }
 
+async function loadProfileData() {
+  try {
+    const res = await fetch('/api/profile');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.profile) {
+      populateProfileForm(data.profile);
+    }
+  } catch (err) {
+    console.debug('Failed to load profile:', err);
+  }
+}
+
+function populateProfileForm(p) {
+  document.getElementById('prof-full-name').value = p.full_name || '';
+  document.getElementById('prof-email').value = p.email || '';
+  document.getElementById('prof-phone').value = p.phone || '';
+  document.getElementById('prof-address').value = p.address || '';
+  document.getElementById('prof-city').value = p.city || '';
+  document.getElementById('prof-state').value = p.state || '';
+  document.getElementById('prof-postal').value = p.postal_code || '';
+  document.getElementById('prof-country').value = p.country || '';
+  document.getElementById('prof-linkedin').value = p.linkedin || '';
+  document.getElementById('prof-github').value = p.github || '';
+  document.getElementById('prof-portfolio').value = p.portfolio || '';
+  document.getElementById('prof-skills').value = (p.skills || []).join(', ');
+  document.getElementById('prof-summary').value = p.summary || '';
+}
+
+function getProfileFormData() {
+  const skillsStr = document.getElementById('prof-skills').value || '';
+  const skillsList = skillsStr.split(',').map(s => s.strip ? s.strip() : s.trim()).filter(Boolean);
+
+  return {
+    full_name: document.getElementById('prof-full-name').value || null,
+    email: document.getElementById('prof-email').value || null,
+    phone: document.getElementById('prof-phone').value || null,
+    address: document.getElementById('prof-address').value || null,
+    city: document.getElementById('prof-city').value || null,
+    state: document.getElementById('prof-state').value || null,
+    postal_code: document.getElementById('prof-postal').value || null,
+    country: document.getElementById('prof-country').value || null,
+    linkedin: document.getElementById('prof-linkedin').value || null,
+    github: document.getElementById('prof-github').value || null,
+    portfolio: document.getElementById('prof-portfolio').value || null,
+    skills: skillsList,
+    summary: document.getElementById('prof-summary').value || null,
+  };
+}
+
 // -------------------------------------------------------------
-// View 4: Audit Stream
+// Audit Log Stream
 // -------------------------------------------------------------
+
+function setupAuditStream() {
+  document.getElementById('refresh-audit-btn').onclick = () => loadAuditLogs();
+}
 
 async function loadAuditLogs() {
   try {
@@ -545,37 +727,32 @@ async function loadAuditLogs() {
     const tbody = document.getElementById('audit-tbody');
     tbody.innerHTML = '';
 
-    const logs = data.logs || [];
-    if (logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No audit events recorded yet.</td></tr>';
-      return;
-    }
-
-    logs.forEach(l => {
+    (data.logs || []).forEach(log => {
       const tr = document.createElement('tr');
-      const timeStr = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const payloadStr = JSON.stringify(l.payload || {});
+      const timeStr = new Date(log.timestamp).toLocaleTimeString();
+      const payloadStr = JSON.stringify(log.payload);
 
       tr.innerHTML = `
-        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(timeStr)}</td>
-        <td style="font-family: var(--font-mono); font-size: 0.78rem;">${escapeHtml(l.job_id.slice(0, 8))}...</td>
-        <td><span class="actor-badge actor-${escapeHtml(l.actor)}">${escapeHtml(l.actor)}</span></td>
-        <td><span class="action-badge">${escapeHtml(l.action)}</span></td>
-        <td><div class="payload-preview" title="${escapeHtml(payloadStr)}">${escapeHtml(payloadStr)}</div></td>
+        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: #94a3b8;">${timeStr}</td>
+        <td style="font-family: var(--font-mono); color: #818cf8;">${log.job_id.slice(0, 8)}</td>
+        <td><span class="actor-badge actor-${log.actor}">${log.actor}</span></td>
+        <td><span class="action-badge">${log.action}</span></td>
+        <td class="payload-preview" title="${escapeHtml(payloadStr)}">${escapeHtml(payloadStr)}</td>
       `;
       tbody.appendChild(tr);
     });
   } catch (err) {
-    console.error('Failed to load audit logs:', err);
+    console.debug('Failed to load audit logs:', err);
   }
 }
 
-function setupAuditStream() {
-  const btn = document.getElementById('refresh-audit-btn');
-  if (btn) btn.onclick = loadAuditLogs;
-}
-
+// Helper
 function escapeHtml(str) {
   if (!str) return '';
-  return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

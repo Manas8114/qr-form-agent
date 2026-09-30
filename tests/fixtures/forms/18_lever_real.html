@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stripe - Backend Engineer (Lever)</title>
+  <link rel="canonical" href="https://jobs.lever.co/stripe/abc-123" />
+</head>
+<body>
+  <div class="lever-application">
+    <div class="posting-header">
+      <h2>Backend Software Engineer</h2>
+      <div class="posting-categories">Engineering / London, UK</div>
+    </div>
+
+    <form id="application-form" action="https://jobs.lever.co/stripe/abc-123/apply" method="POST" enctype="multipart/form-data">
+      <div class="application-field">
+        <label for="lever-name">Full Name ✱</label>
+        <input type="text" id="lever-name" name="name" placeholder="First and last name" required />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-email">Email ✱</label>
+        <input type="email" id="lever-email" name="email" placeholder="name@example.com" required />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-phone">Phone ✱</label>
+        <input type="tel" id="lever-phone" name="phone" placeholder="+44 20 7946 0991" required />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-org">Current Company / University</label>
+        <input type="text" id="lever-org" name="org" placeholder="Employer or University" />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-linkedin">LinkedIn URL</label>
+        <input type="url" id="lever-linkedin" name="urls[LinkedIn]" placeholder="https://linkedin.com/in/..." />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-github">GitHub URL</label>
+        <input type="url" id="lever-github" name="urls[GitHub]" placeholder="https://github.com/..." />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-resume">Resume/CV ✱</label>
+        <input type="file" id="lever-resume" name="resume" required />
+      </div>
+
+      <!-- Question handled by Answers Bank -->
+      <div class="application-question">
+        <label for="lever-relocate">Are you willing to relocate for this position?</label>
+        <input type="text" id="lever-relocate" name="relocation" />
+      </div>
+
+      <div class="application-field">
+        <label for="lever-comments">Additional Information / Cover Note</label>
+        <textarea id="lever-comments" name="comments" rows="4" placeholder="Add any notes or relevant project context..."></textarea>
+      </div>
+
+      <div class="application-action">
+        <button type="submit" id="btn-submit">Submit Application</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

@@ -25,7 +25,7 @@ class JobStatus(str, Enum):
 
 # Strict allowable state transitions
 VALID_TRANSITIONS: Dict[JobStatus, Set[JobStatus]] = {
-    JobStatus.QUEUED: {JobStatus.VISITING, JobStatus.NEEDS_HUMAN, JobStatus.FAILED},
+    JobStatus.QUEUED: {JobStatus.VISITING, JobStatus.NEEDS_HUMAN, JobStatus.REJECTED, JobStatus.FAILED},
     JobStatus.VISITING: {JobStatus.FILLED, JobStatus.NEEDS_HUMAN, JobStatus.FAILED},
     JobStatus.FILLED: {JobStatus.AWAITING_APPROVAL, JobStatus.NEEDS_HUMAN, JobStatus.FAILED},
     JobStatus.AWAITING_APPROVAL: {JobStatus.APPROVED, JobStatus.REJECTED, JobStatus.NEEDS_HUMAN, JobStatus.FAILED},

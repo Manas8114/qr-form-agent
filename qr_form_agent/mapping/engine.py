@@ -9,7 +9,7 @@ Coordinates:
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,7 @@ from qr_form_agent.mapping.cache import MappingCache
 from qr_form_agent.mapping.denylist import inspect_form_for_denylisted_fields
 from qr_form_agent.mapping.tier1_rules import MappedField, map_field_tier1
 from qr_form_agent.mapping.tier2_llm import map_fields_with_llm
+from qr_form_agent.profile.answers_bank import AnswersBank
 from qr_form_agent.profile.schema import Profile
 
 logger = logging.getLogger(__name__)
@@ -30,17 +31,30 @@ class MappingPipelineResult(BaseModel):
     denylist_reasons: List[str] = Field(default_factory=list)
     needs_human: bool = False
     average_confidence: float = 0.0
+    platform: Optional[str] = None
 
 
 class MappingEngine:
-    def __init__(self, cache: Optional[MappingCache] = None):
+    def __init__(
+        self,
+        cache: Optional[MappingCache] = None,
+        answers_bank: Optional[AnswersBank] = None,
+        adapter_registry: Optional[Any] = None,
+    ):
         self.cache = cache or MappingCache()
+        self.answers_bank = answers_bank or AnswersBank()
+        if adapter_registry is None:
+            from qr_form_agent.adapters.registry import AdapterRegistry
+            self.adapter_registry = AdapterRegistry()
+        else:
+            self.adapter_registry = adapter_registry
 
     def process_form_fields(
         self,
         url: str,
         fields: List[FormFieldDescriptor],
         profile: Profile,
+        html: str = "",
     ) -> MappingPipelineResult:
         """
         Executes the entire mapping pipeline on extracted form fields.
@@ -65,8 +79,21 @@ class MappingEngine:
         mapped_results: Dict[str, MappedField] = {}
         unmapped_fields: List[FormFieldDescriptor] = []
 
-        # Step 2: Cache lookup & Step 3: Tier 1 rules
+        # Step 2: Check for specialized ATS Platform Adapter (Workday, Greenhouse, Lever, CoreHR)
+        platform_name: Optional[str] = None
+        adapter = self.adapter_registry.find_adapter(url, html)
+        if adapter:
+            platform_name = adapter.name
+            adapter_mapped = adapter.map_fields(fields, profile, self.answers_bank)
+            for m in adapter_mapped:
+                if m.confidence >= settings.confidence_threshold:
+                    mapped_results[m.field_id] = m
+
+        # Step 3: Cache lookup, Tier 1 rules & Answers Bank for remaining fields
         for f in fields:
+            if f.field_id in mapped_results:
+                continue
+
             sig = self.cache.compute_field_signature(f.tag_name, f.field_type, f.name, f.label)
             cached_key = self.cache.get_cached_key(domain, sig)
 
@@ -88,6 +115,22 @@ class MappingEngine:
             t1 = map_field_tier1(f, profile)
             if t1 and t1.confidence >= settings.confidence_threshold:
                 mapped_results[f.field_id] = t1
+                continue
+
+            # Try Saved Answers Bank (deterministic, 1.0 confidence, bypasses LLM)
+            candidate_text = f"{f.label or ''} {f.name or ''} {f.placeholder or ''}".strip()
+            bank_match = self.answers_bank.find_answer(candidate_text)
+            if bank_match:
+                b_key, b_val, b_conf = bank_match
+                mapped_results[f.field_id] = MappedField(
+                    field_id=f.field_id,
+                    selector=f.selector,
+                    profile_key=f"answers_bank.{b_key}",
+                    value=b_val,
+                    confidence=b_conf,
+                    reason=f"Matched Saved Answers Bank: {b_key}",
+                    flagged_for_review=False,
+                )
             else:
                 unmapped_fields.append(f)
 
@@ -118,4 +161,5 @@ class MappingEngine:
             denylist_reasons=[],
             needs_human=needs_human,
             average_confidence=round(avg_conf, 3),
+            platform=platform_name,
         )

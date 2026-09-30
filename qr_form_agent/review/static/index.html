@@ -1,31 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Form Agent - Frontend Control Center</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>QR Form Agent — Control Center</title>
+  <link rel="stylesheet" href="/static/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <!-- Header -->
-  <header>
-    <div class="brand-wrapper">
-      <div class="brand">
-        <div class="brand-icon">⚡</div>
-        <span>QR Form Agent</span>
-        <span class="brand-sub">Control Center</span>
-      </div>
 
-      <!-- Navigation Tabs -->
-      <nav class="nav-tabs" aria-label="Main Navigation">
+  <!-- Top App Bar -->
+  <header>
+    <div class="brand">
+      <div class="logo-box">
+        <span class="logo-icon">⚡</span>
+      </div>
+      <div>
+        <h1 class="brand-title">QR FORM AGENT</h1>
+        <div class="brand-subtitle">Frontend Control Center — Autonomous Pre-Fill &amp; Verified Submission</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-container">
+      <nav class="nav-tabs" aria-label="Control Center Navigation">
         <button class="nav-tab active" data-tab="tab-review" id="tab-btn-review">
           <span>📋 Form Review</span>
         </button>
         <button class="nav-tab" data-tab="tab-launchpad" id="tab-btn-launchpad">
           <span>🎯 QR Launchpad</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-tracker" id="tab-btn-tracker">
+          <span>📊 Tracker & Reminders</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-answers" id="tab-btn-answers">
+          <span>🏦 Answers Bank</span>
         </button>
         <button class="nav-tab" data-tab="tab-profile" id="tab-btn-profile">
           <span>👤 Candidate Profile</span>
@@ -75,14 +86,17 @@
   <!-- Main Viewport -->
   <main class="main-viewport">
 
-    <!-- VIEW 1: Form Review Dashboard -->
+    <!-- VIEW 1: Form Review Dashboard (Side-by-Side & Bulk Approve) -->
     <section class="view-section active" id="tab-review">
       <div class="dashboard-container">
         <!-- Sidebar -->
         <aside class="sidebar">
           <div class="sidebar-header">
             <span class="sidebar-title">Discovered Jobs</span>
-            <button id="refresh-btn" class="btn btn-refresh">↻ Refresh</button>
+            <div class="sidebar-actions">
+              <button id="bulk-approve-btn" class="btn btn-approve btn-sm" title="Bulk approve jobs with >= 85% confidence">⚡ Bulk Approve</button>
+              <button id="refresh-btn" class="btn btn-refresh btn-sm">↻</button>
+            </div>
           </div>
           <ul class="jobs-list" id="jobs-list">
             <!-- Populated via JS -->
@@ -100,8 +114,14 @@
             <!-- Header Card -->
             <div class="job-header-card">
               <div class="job-title-group">
-                <h2 id="job-domain">careers.example.com</h2>
-                <a href="#" target="_blank" rel="noopener noreferrer" id="job-url" class="job-url-link">https://careers.example.com/apply</a>
+                <div class="job-title-row">
+                  <h2 id="job-domain">careers.example.com</h2>
+                  <span class="platform-badge" id="job-platform-badge">GENERIC</span>
+                </div>
+                <div class="job-meta-sub">
+                  <span id="job-company-role" class="job-company-role-text">Company / Role</span>
+                  <a href="#" target="_blank" rel="noopener noreferrer" id="job-url" class="job-url-link">https://careers.example.com/apply</a>
+                </div>
               </div>
               <div class="job-header-meta">
                 <div class="hash-badge-container">
@@ -112,21 +132,31 @@
               </div>
             </div>
 
-            <!-- Split View: Table & Screenshot -->
+            <!-- Split View: Screenshot & Fields Table -->
             <div class="split-view">
-              <!-- Fields Table -->
-              <div class="card">
+              <!-- Left: Screenshot Card -->
+              <div class="card split-card-left">
                 <div class="card-header">
-                  <span>Proposed Field Values (Editable)</span>
+                  <span>Live Form Screenshot</span>
+                </div>
+                <div class="screenshot-view">
+                  <img id="form-screenshot" class="screenshot-img" src="" alt="Form Screenshot" />
+                </div>
+              </div>
+
+              <!-- Right: Fields Table (Low confidence sorted first) -->
+              <div class="card split-card-right">
+                <div class="card-header">
+                  <span>Field Values (Editable, Low Confidence First)</span>
                   <span class="field-count-badge" id="field-count">0 fields</span>
                 </div>
                 <div class="table-container">
                   <table>
                     <thead>
                       <tr>
-                        <th>Field</th>
-                        <th>Value</th>
-                        <th>Source Key</th>
+                        <th>Field Name</th>
+                        <th>Populated Value</th>
+                        <th>Source</th>
                         <th>Conf.</th>
                       </tr>
                     </thead>
@@ -136,25 +166,15 @@
                   </table>
                 </div>
               </div>
-
-              <!-- Screenshot Card -->
-              <div class="card">
-                <div class="card-header">
-                  <span>Page Snapshot</span>
-                </div>
-                <div class="screenshot-view">
-                  <img id="form-screenshot" class="screenshot-img" src="" alt="Form Screenshot" />
-                </div>
-              </div>
             </div>
 
             <!-- Action Footer -->
             <div class="action-footer">
               <div class="footer-notice" id="action-notice">
-                ⚠️ Approving will lock the current field values and compute a cryptographic SHA-256 fingerprint.
+                ⚠️ Approving locks field values and computes a cryptographic SHA-256 snapshot.
               </div>
               <div class="footer-actions">
-                <button class="btn btn-takeover" id="takeover-btn">🚀 Headful Takeover</button>
+                <button class="btn btn-handoff" id="handoff-btn">👉 Continue Here (Login/CAPTCHA)</button>
                 <button class="btn btn-reject" id="reject-btn">Reject Job</button>
                 <button class="btn btn-approve" id="approve-btn">✓ Approve & Lock Snapshot</button>
                 <button class="btn btn-submit-action" id="submit-btn">⚡ Submit Approved Form</button>
@@ -165,7 +185,7 @@
       </div>
     </section>
 
-    <!-- VIEW 2: QR Launchpad -->
+    <!-- VIEW 2: QR Launchpad (Mobile & Camera Ready) -->
     <section class="view-section" id="tab-launchpad">
       <div class="launchpad-container">
         <div class="card">
@@ -174,14 +194,14 @@
           </div>
           <div class="card-body">
             <p class="text-muted-desc">
-              Upload an image containing one or multiple QR codes. The pipeline will decode them, enforce the HTTPS/SSRF URL safety gate, pre-fill form fields, and stage for human approval.
+              Photograph or upload an image containing one or multiple QR codes. The pipeline will read printed labels (company, role, deadline), triage URLs, and safely pre-fill forms.
             </p>
 
             <div class="drop-zone" id="qr-dropzone">
               <div class="drop-icon">📷</div>
-              <div class="drop-title">Click or drag & drop QR image here</div>
-              <div class="drop-subtitle">Supports PNG, JPG, WEBP</div>
-              <input type="file" id="qr-file-input" class="file-input-hidden" accept="image/*" title="Upload QR Image" aria-label="Upload QR Image" />
+              <div class="drop-title">Take photo or drag & drop QR image here</div>
+              <div class="drop-subtitle">Supports Camera Capture, PNG, JPG, WEBP</div>
+              <input type="file" id="qr-file-input" class="file-input-hidden" accept="image/*" capture="environment" title="Upload QR Image" aria-label="Upload QR Image" />
             </div>
 
             <div class="scan-preview-card" id="scan-preview-box">
@@ -203,7 +223,84 @@
       </div>
     </section>
 
-    <!-- VIEW 3: Candidate Profile -->
+    <!-- VIEW 3: Application Tracker & Reminders -->
+    <section class="view-section" id="tab-tracker">
+      <div class="tracker-container">
+        <!-- Reminders Banner -->
+        <div class="card reminder-banner" id="reminder-card">
+          <div class="card-header">
+            <span>📅 Upcoming Deadlines & Opening Reminders</span>
+          </div>
+          <div class="card-padded" id="reminder-list">
+            <!-- Reminders populated via JS -->
+          </div>
+        </div>
+
+        <!-- Applications Table Card -->
+        <div class="card">
+          <div class="card-header">
+            <span>All Tracked Applications</span>
+            <div class="profile-header-actions">
+              <a href="/api/tracker/export/csv" class="btn btn-refresh" download>📥 Export CSV</a>
+              <a href="/api/tracker/export/notion" class="btn btn-refresh" download>📊 Export Notion CSV</a>
+              <a href="/api/tracker/export/ics" class="btn btn-refresh" download>📅 Export .ICS Calendar</a>
+            </div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>Platform</th>
+                  <th>Status</th>
+                  <th>Deadline</th>
+                  <th>Applied Date</th>
+                  <th>URL</th>
+                </tr>
+              </thead>
+              <tbody id="tracker-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: Saved Answers Bank -->
+    <section class="view-section" id="tab-answers">
+      <div class="answers-container">
+        <div class="card">
+          <div class="card-header">
+            <span>🏦 Saved Answers Bank (Bypasses LLM at 1.0 Confidence)</span>
+          </div>
+          <div class="card-padded">
+            <p class="text-muted-desc">
+              Answers stored here are used deterministically across all application forms for questions like visa sponsorship, notice periods, and relocation.
+            </p>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Category</th>
+                    <th>Question</th>
+                    <th>Saved Value</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="answers-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 5: Candidate Profile -->
     <section class="view-section" id="tab-profile">
       <div class="profile-container">
         <div class="card">
@@ -275,7 +372,7 @@
       </div>
     </section>
 
-    <!-- VIEW 4: Audit Stream -->
+    <!-- VIEW 6: Audit Stream -->
     <section class="view-section" id="tab-audit">
       <div class="audit-container">
         <div class="card">

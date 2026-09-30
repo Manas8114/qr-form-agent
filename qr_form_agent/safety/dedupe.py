@@ -1,6 +1,6 @@
 """URL canonicalization and deduplication utilities."""
 
-from typing import List, Set
+from typing import List, Set, Tuple
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 
@@ -46,3 +46,25 @@ def deduplicate_urls(urls: List[str]) -> List[str]:
             result.append(canonical)
 
     return result
+
+
+def diff_against_existing_urls(
+    discovered_urls: List[str],
+    existing_urls: Set[str],
+) -> Tuple[List[str], List[str]]:
+    """
+    Diffs discovered URLs against existing tracked URLs in the database.
+    Returns: (new_urls, already_seen_urls)
+    """
+    canonical_existing = {canonicalize_url(u) for u in existing_urls}
+    new_urls: List[str] = []
+    already_seen: List[str] = []
+
+    for u in deduplicate_urls(discovered_urls):
+        c = canonicalize_url(u)
+        if c in canonical_existing:
+            already_seen.append(u)
+        else:
+            new_urls.append(u)
+
+    return new_urls, already_seen

@@ -120,27 +120,41 @@ Parse your resume once and save to local verified storage:
 qr-form-agent extract-profile --resume path/to/resume.pdf
 ```
 
-#### Step 2: Scan QR Codes & Run Pre-Fill Pipeline
+#### Step 2: One-Command Full Flow (Run)
 
-Scan an image containing one or more QR codes:
+Execute the entire end-to-end pipeline with a single command:
+- Reads printed labels & notices outside each QR code
+- Diffs against previously seen URLs (batch re-scan)
+- Pre-triages each destination (`FORM`, `LANDING_PAGE`, `LOGIN_WALL`, `CLOSED`, `DEAD`)
+- Automatically traverses 1-hop "Apply" landing links through SSRF gate
+- Maps fields using specialized ATS adapters (Workday, Greenhouse, Lever, CoreHR) & Saved Answers Bank
+- Performs per-job resume & cover letter tailoring with no-fabrication validation
+- Stages pre-fills and outputs a rich summary table
 
 ```bash
-# Normal run:
-qr-form-agent scan --image path/to/codes.png
+# Run full flow on photo of board:
+qr-form-agent run board.jpg
 
-# Dry-run mode (network mutations simulated/blocked):
-qr-form-agent scan --image path/to/codes.png --dry-run
+# Dry-run audit report mode (shows every field that would be filled vs refused):
+qr-form-agent run board.jpg --dry-run
+
+# Batch re-scan mode (processes only newly discovered codes on updated boards):
+qr-form-agent run board.jpg --diff-only
 ```
 
-#### Step 3: Launch Human Review Dashboard
+#### Step 3: Mobile-Friendly Human Review Dashboard & Control Center
 
-Start the local FastAPI review dashboard:
+Start the local review server:
 
 ```bash
 qr-form-agent review
 ```
 
-Navigate to `http://localhost:8000` to inspect discovered jobs, examine live screenshots, edit field values, and approve or reject jobs.
+Navigate to `http://localhost:8000` (desktop or mobile):
+- **Camera Upload:** Directly photograph or upload career boards from your phone camera (`capture="environment"`).
+- **Side-by-Side Review:** Live screenshot alongside pre-filled values, source profile field, and confidence indicators. Low-confidence fields are sorted to the top.
+- **Bulk Approve:** One-click approval for all high-confidence jobs.
+- **"Continue Here" Handoff:** Launch headful browser takeover for CAPTCHAs or login walls and resume automatically.
 
 #### Step 4: Submit Approved Job
 
@@ -148,6 +162,28 @@ Once a job is approved in the dashboard, trigger submission:
 
 ```bash
 qr-form-agent submit --job-id <JOB_UUID>
+```
+
+#### Step 5: Application Tracker, Reminders & Exports
+
+Track application statuses, deadlines, and opening notices with zero duplicates:
+
+```bash
+# List all tracked applications:
+qr-form-agent tracker
+
+# Export applications to CSV or Notion database CSV:
+qr-form-agent tracker --export-csv applications.csv
+qr-form-agent tracker --export-notion notion_applications.csv
+
+# Export deadlines and opening reminders to iCalendar:
+qr-form-agent tracker --export-ics reminders.ics
+
+# View upcoming deadlines and opening notices:
+qr-form-agent reminders
+
+# View and manage the Saved Answers Bank:
+qr-form-agent answers-bank
 ```
 
 #### Global Kill Switch
@@ -164,7 +200,7 @@ qr-form-agent kill-switch deactivate
 
 ## 🧪 Running the Test Suite
 
-Run the full pytest suite including the 15 fixtures and submit-blocking verification:
+Run the full pytest suite (75 tests including Workday, Greenhouse, Lever, Google Forms, and security hardening):
 
 ```bash
 pytest -v
