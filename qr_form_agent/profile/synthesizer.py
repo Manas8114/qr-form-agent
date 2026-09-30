@@ -115,11 +115,11 @@ _SECTION_HEADERS = {
         re.IGNORECASE,
     ),
     "education": re.compile(
-        r"^education(?:al)?\s*(?:background|history|qualifications?)?\s*[:\-–—]?\s*$",
+        r"^(?:education(?:al)?\s*(?:background|history|qualifications?)?|academic\s+background)\s*[:\-–—]?\s*$",
         re.IGNORECASE,
     ),
     "experience": re.compile(
-        r"^(?:work\s+|professional\s+)?(?:experience|employment|work\s+history|career\s+history)\s*[:\-–—]?\s*$",
+        r"^(?:work\s+|professional\s+|industry\s+)?(?:experience|employment|work\s+history|career\s+history|internships?)\s*[:\-–—]?\s*$",
         re.IGNORECASE,
     ),
     "skills": re.compile(
@@ -127,7 +127,7 @@ _SECTION_HEADERS = {
         re.IGNORECASE,
     ),
     "projects": re.compile(
-        r"^(?:personal\s+|academic\s+|notable\s+)?projects?\s*[:\-–—]?\s*$",
+        r"^(?:personal\s+|academic\s+|notable\s+|selected\s+|featured\s+|key\s+|recent\s+)?projects?\s*[:\-–—]?\s*$",
         re.IGNORECASE,
     ),
     "certifications": re.compile(
@@ -135,7 +135,7 @@ _SECTION_HEADERS = {
         re.IGNORECASE,
     ),
     "awards": re.compile(
-        r"^(?:awards?|honors?|achievements?)\s*[:\-–—]?\s*$",
+        r"^(?:awards?|honors?|achievements?|awards\s*&\s*honou?rs?)\s*[:\-–—]?\s*$",
         re.IGNORECASE,
     ),
     "publications": re.compile(
@@ -147,7 +147,7 @@ _SECTION_HEADERS = {
         re.IGNORECASE,
     ),
     "interests": re.compile(
-        r"^(?:hobbies|interests?|activities)\s*[:\-–—]?\s*$",
+        r"^(?:hobbies|interests?|activities|leadership\s*&\s*activities)\s*[:\-–—]?\s*$",
         re.IGNORECASE,
     ),
     "references": re.compile(
@@ -156,18 +156,20 @@ _SECTION_HEADERS = {
     ),
 }
 
-# Date pattern used across sections
+_MONTH_NAME = (
+    r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+    r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?"
+)
+
 _DATE_PATTERN = re.compile(
-    r"(?:(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
-    r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
-    r"\s*\.?\s*\d{2,4}|\d{1,2}/\d{2,4}|\d{4}|Present|Current|Ongoing|Now)",
+    r"(?:" + _MONTH_NAME + r"\s*\d{2,4}|\d{1,2}/\d{2,4}|\d{4}|Present|Current|Ongoing|Now)",
     re.IGNORECASE,
 )
 
 _DATE_RANGE_PATTERN = re.compile(
-    r"(" + _DATE_PATTERN.pattern + r")"
-    r"\s*(?:[-–—]|to)\s*"
-    r"(" + _DATE_PATTERN.pattern + r")",
+    r"((?:" + _MONTH_NAME + r"(?:\s*\d{2,4})?|\d{1,2}/\d{2,4}|\d{4}))"
+    r"\s*(?:[-–—]|to|\s+)\s*"
+    r"((?:" + _MONTH_NAME + r"\s*\d{2,4}|\d{1,2}/\d{2,4}|\d{4}|Present|Current|Ongoing|Now))",
     re.IGNORECASE,
 )
 
@@ -180,15 +182,15 @@ _PHONE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Degree patterns
+# Degree patterns with explicit word boundaries
 _DEGREE_PATTERN = re.compile(
-    r"(?:Bachelor(?:'?s)?|B\.?(?:S|A|E|Tech|Eng|Sc|Com|B\.A)\.?|"
-    r"Master(?:'?s)?|M\.?(?:S|A|Tech|Eng|Sc|B\.A|Phil)\.?|"
-    r"(?:Doctor(?:ate)?|Ph\.?D\.?)|"
-    r"Associate(?:'?s)?|A\.?(?:S|A)\.?|"
-    r"M\.?B\.?A\.?|"
-    r"Diploma|Certificate|"
-    r"B\.?C\.?A\.?|M\.?C\.?A\.?|B\.?E\.?|M\.?E\.?)",
+    r"\b(?:Bachelor(?:'?s)?|B\.?\s*(?:S|A|E|Tech|Eng|Sc|Com)\b|"
+    r"Master(?:'?s)?|M\.?\s*(?:S|A|Tech|Eng|Sc|Phil)\b|"
+    r"Doctor(?:ate)?|Ph\.?D\.?|"
+    r"Associate(?:'?s)?|A\.?\s*(?:S|A)\b|"
+    r"M\.?B\.?A\.?|B\.?C\.?A\.?|M\.?C\.?A\.?|B\.?E\.?\b|M\.?E\.?\b|"
+    r"Senior\s+Secondary|Secondary|"
+    r"Diploma|Certificate)\b",
     re.IGNORECASE,
 )
 
@@ -286,6 +288,17 @@ def _extract_links(text: str) -> Tuple[Optional[str], Optional[str], Optional[st
         else:
             others.append(LinkItem(label="Link", url=url_clean))
 
+    # Also detect domain paths without http prefix (e.g. github.com/user, linkedin.com/in/user)
+    if not github:
+        gh_match = re.search(r"\b(?:www\.)?github\.com/([a-zA-Z0-9_\-\.]+)", text, re.IGNORECASE)
+        if gh_match:
+            github = f"https://github.com/{gh_match.group(1)}"
+
+    if not linkedin:
+        li_match = re.search(r"\b(?:www\.)?linkedin\.com/in/([a-zA-Z0-9_\-\.]+)", text, re.IGNORECASE)
+        if li_match:
+            linkedin = f"https://linkedin.com/in/{li_match.group(1)}"
+
     return linkedin, github, portfolio, others
 
 
@@ -338,55 +351,56 @@ def _extract_address(header_text: str) -> Tuple[Optional[str], Optional[str], Op
 
     for line in lines:
         stripped = line.strip()
-        low = stripped.lower()
+        if not stripped:
+            continue
 
-        # Skip empty, email, phone, URL, or name-like lines
-        if not stripped or "@" in stripped or "http" in low:
+        # Clean off email, phone, and URLs from line to reveal address fragments like "Chennai, India"
+        clean = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "", stripped)
+        clean = re.sub(r"(?:https?://)?(?:www\.)?[\w\.-]+\.[a-zA-Z]{2,}(?:/[^\s]*)?", "", clean)
+        clean = re.sub(r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,5}[\s.-]?\d{3,5}", "", clean)
+        clean = clean.strip(" \t•·,-–|")
+        low = clean.lower()
+        if not clean or len(clean) < 2:
             continue
 
         # Look for postal / zip code
-        zip_match = re.search(r"\b(\d{5,6}(?:-\d{4})?)\b", stripped)
+        zip_match = re.search(r"\b(\d{5,6}(?:-\d{4})?)\b", clean)
         if zip_match:
             postal_code = zip_match.group(1)
 
         # Look for Indian states
         for ist in _INDIAN_STATES:
-            if ist in low:
+            if re.search(r"\b" + re.escape(ist) + r"\b", low):
                 state = ist.title()
                 break
 
         # Look for US state abbreviations
-        state_match = re.search(r"\b([A-Z]{2})\b", stripped)
+        state_match = re.search(r"\b([A-Z]{2})\b", clean)
         if state_match and state_match.group(1) in _US_STATES:
             state = state_match.group(1)
 
         # Look for countries
         for c in _COUNTRIES:
-            if c in low:
+            if re.search(r"\b" + re.escape(c) + r"\b", low):
                 country = c.title()
                 break
 
         # If the line has commas and looks like an address
-        if "," in stripped:
-            parts = [p.strip() for p in stripped.split(",")]
-            # Try to identify city from comma-separated parts
+        if "," in clean:
+            parts = [p.strip() for p in clean.split(",")]
             for part in parts:
                 part_low = part.lower()
-                # Skip if it's a state or country we already found
                 if state and part_low == state.lower():
                     continue
                 if country and part_low == country.lower():
                     continue
-                # Skip zip codes
                 if re.match(r"^\d{5,6}(?:-\d{4})?$", part):
                     continue
-                # This could be a city
-                if not city and len(part) > 1 and part[0].isupper():
+                if not city and len(part) > 1 and part[0].isupper() and not any(kw in part_low for kw in ("ielts", "cgpa", "b.tech", "grade")):
                     city = part
 
-            # If the line has address-like structure (number + street)
-            if re.search(r"\d+\s+\w+", stripped):
-                address = stripped
+        if re.search(r"\d+\s+\w+", clean):
+            address = clean
 
     return address, city, state, postal_code, country
 
@@ -408,26 +422,23 @@ def _parse_education_section(lines: List[str]) -> List[EducationItem]:
         date_match = _DATE_RANGE_PATTERN.search(stripped)
         degree_match = _DEGREE_PATTERN.search(stripped)
 
-        # Lines with a degree or institution often start a new education entry
-        has_degree = degree_match is not None
-        has_dates = date_match is not None
-
-        # Heuristic: if the line contains a degree keyword or is a new institution line
-        # (starts with uppercase and has more than 2 words), it's a new entry
         words = stripped.split()
         looks_like_institution = (
             len(words) >= 2
             and stripped[0].isupper()
             and not stripped.startswith(("•", "-", "*", "–", "—"))
-            and (has_degree or has_dates or any(
-                kw in stripped.lower()
-                for kw in ("university", "college", "institute", "school", "academy", "iit", "nit", "iiit")
-            ))
+            and (
+                degree_match is not None
+                or any(
+                    kw in stripped.lower()
+                    for kw in ("university", "college", "institute", "school", "academy", "iit", "nit", "iiit", "srm")
+                )
+            )
         )
 
         if looks_like_institution:
             # Save previous entry
-            if current:
+            if current and (current.get("institution") or current.get("degree")):
                 items.append(EducationItem(**current))
 
             current = {
@@ -439,58 +450,62 @@ def _parse_education_section(lines: List[str]) -> List[EducationItem]:
                 "gpa": None,
             }
 
-            # Extract degree
             if degree_match:
                 current["degree"] = degree_match.group(0).strip()
 
-            # Extract dates
+            # Split by multiple spaces or separators like "·" or " | " to distinguish degree/field vs institution
+            parts = [p.strip() for p in re.split(r"\s*[·|]\s*|\s{2,}", stripped) if p.strip()]
+            if len(parts) >= 2:
+                inst_cand = parts[1]
+                field_cand = re.sub(_DEGREE_PATTERN, "", parts[0]).strip(" ,-–—()")
+                current["institution"] = inst_cand
+                if field_cand and len(field_cand) > 2:
+                    current["field_of_study"] = field_cand
+            else:
+                inst_text = stripped
+                if degree_match:
+                    inst_text = (inst_text[:degree_match.start()] + inst_text[degree_match.end():]).strip()
+                if date_match:
+                    inst_text = (inst_text[:date_match.start()] + inst_text[date_match.end():]).strip()
+                inst_text = re.sub(r"^\s*[,–—|-]\s*", "", inst_text).strip()
+                inst_text = re.sub(r"\s*[,–—|-]\s*$", "", inst_text).strip()
+                if inst_text:
+                    current["institution"] = inst_text
+
             if date_match:
                 current["start_year"] = date_match.group(1).strip()
                 current["end_year"] = date_match.group(2).strip()
 
-            # Extract institution: remove the degree and date parts
-            inst_text = stripped
-            if date_match:
-                inst_text = inst_text[:date_match.start()] + inst_text[date_match.end():]
-            if degree_match:
-                inst_text = inst_text[:degree_match.start()] + inst_text[degree_match.end():]
-            # Clean separators
-            inst_text = re.sub(r"\s*[-–—|,]\s*$", "", inst_text).strip()
-            inst_text = re.sub(r"^\s*[-–—|,]\s*", "", inst_text).strip()
-            inst_text = re.sub(r"\s*\(\s*\)\s*", "", inst_text).strip()
-
-            if inst_text:
-                current["institution"] = inst_text
-
-            # Try to find field of study
-            field_match = re.search(
-                r"(?:in|of)\s+(.+?)(?:\s*[-–—(,]|$)",
-                stripped,
-                re.IGNORECASE,
-            )
-            if field_match:
-                field = field_match.group(1).strip().rstrip(".,;")
-                # Don't assign if it looks like a date
-                if not re.match(r"^\d{4}$", field) and len(field) > 2:
-                    current["field_of_study"] = field
-
-        elif current:
-            # Continuation line: could contain GPA, field of study, or other info
             gpa_match = re.search(
-                r"(?:GPA|CGPA|Grade|Percentage)\s*[:\s]*([0-9]+\.?[0-9]*(?:\s*/\s*[0-9]+\.?[0-9]*)?%?)",
+                r"(?:GPA|CGPA|Grade|Score|Percentage)\s*[:\s]*([0-9]+\.?[0-9]*(?:\s*/\s*[0-9]+\.?[0-9]*)?%?)",
                 stripped,
                 re.IGNORECASE,
             )
             if gpa_match:
                 current["gpa"] = gpa_match.group(1).strip()
 
-            # If no degree yet, check continuation for degree
+        elif current:
+            gpa_match = re.search(
+                r"(?:GPA|CGPA|Grade|Score|Percentage)\s*[:\s]*([0-9]+\.?[0-9]*(?:\s*/\s*[0-9]+\.?[0-9]*)?%?)",
+                stripped,
+                re.IGNORECASE,
+            )
+            if gpa_match and not current["gpa"]:
+                current["gpa"] = gpa_match.group(1).strip()
+
+            if not current["start_year"]:
+                dm2 = _DATE_RANGE_PATTERN.search(stripped)
+                if dm2:
+                    current["start_year"] = dm2.group(1).strip()
+                    current["end_year"] = dm2.group(2).strip()
+                elif re.match(r"^\d{4}$", stripped):
+                    current["end_year"] = stripped
+
             if not current["degree"]:
                 dm = _DEGREE_PATTERN.search(stripped)
                 if dm:
                     current["degree"] = dm.group(0).strip()
 
-            # If no field yet, check for "Computer Science", "Mechanical Engineering" patterns
             if not current["field_of_study"]:
                 field_kw = re.search(
                     r"(?:Computer\s+Science|Electrical|Mechanical|Civil|Chemical|"
@@ -504,15 +519,7 @@ def _parse_education_section(lines: List[str]) -> List[EducationItem]:
                 if field_kw:
                     current["field_of_study"] = field_kw.group(0).strip()
 
-            # If no dates yet, check continuation
-            if not current["start_year"]:
-                dm2 = _DATE_RANGE_PATTERN.search(stripped)
-                if dm2:
-                    current["start_year"] = dm2.group(1).strip()
-                    current["end_year"] = dm2.group(2).strip()
-
-    # Don't forget the last entry
-    if current:
+    if current and (current.get("institution") or current.get("degree")):
         items.append(EducationItem(**current))
 
     return items
@@ -534,12 +541,25 @@ def _parse_experience_section(lines: List[str]) -> List[ExperienceItem]:
         date_match = _DATE_RANGE_PATTERN.search(stripped)
         is_bullet = stripped.startswith(("•", "-", "*", "–", "—", "▪", "▸", "►"))
 
+        # If line contains ONLY dates (e.g. "Aug Sep 2024") and we already have an active job,
+        # update current entry's dates instead of creating a dummy job!
+        clean_check = re.sub(_DATE_RANGE_PATTERN, "", stripped).strip()
+        clean_check = re.sub(_DATE_PATTERN, "", clean_check).strip()
+        if current and date_match and len(clean_check) < 4:
+            current["start_date"] = date_match.group(1).strip()
+            end_val = date_match.group(2).strip()
+            current["end_date"] = end_val
+            if end_val.lower() in ("present", "current", "ongoing", "now"):
+                current["is_current"] = True
+            continue
+
         # Heuristic: a non-bullet line with dates or a title-like structure starts a new entry
         looks_like_entry_start = (
             not is_bullet
-            and (date_match or any(sep in stripped for sep in (" - ", " – ", " — ", " | ", " at ")))
+            and (date_match or any(sep in stripped for sep in (" - ", " – ", " — ", " | ", " at ", " @ ")) or "  " in stripped)
             and stripped[0].isupper()
             and len(stripped.split()) >= 2
+            and len(clean_check) >= 4
         )
 
         if looks_like_entry_start:
@@ -573,24 +593,21 @@ def _parse_experience_section(lines: List[str]) -> List[ExperienceItem]:
                 clean_line = (clean_line[:date_match.start()] + clean_line[date_match.end():]).strip()
             clean_line = re.sub(r"[\(\)]", "", clean_line).strip()
 
-            # Try "Title - Company" or "Title at Company" or "Title | Company" patterns
-            sep_match = re.split(r"\s+[-–—|]\s+|\s+at\s+", clean_line, maxsplit=1)
+            # Try "Title - Company" or "Title at Company" or "Title @ Company" or double-space patterns
+            sep_match = re.split(r"\s+[-–—|]\s+|\s+at\s+|\s+[@]\s+|\s{2,}", clean_line, maxsplit=1)
             if len(sep_match) == 2:
                 current["title"] = sep_match[0].strip().rstrip(",.")
                 current["company"] = sep_match[1].strip().rstrip(",.")
             elif len(sep_match) == 1:
-                # Single item: could be title or company — take as title, next line might be company
+                # Single item: take as title
                 current["title"] = clean_line.rstrip(",.")
 
         elif current and is_bullet:
-            # Bullet point: description content
             bullet_text = re.sub(r"^[•\-*–—▪▸►]\s*", "", stripped)
             desc_lines.append(f"• {bullet_text}")
 
         elif current and not is_bullet and stripped:
-            # Non-bullet continuation: could be a company name or location on a separate line
             if not current["company"] and stripped[0].isupper():
-                # Check if it looks like a company (not a common description word)
                 if not any(stripped.lower().startswith(w) for w in ("responsible", "developed", "managed", "led", "built", "designed", "created", "implemented")):
                     current["company"] = stripped.rstrip(",.")
                     continue
@@ -780,7 +797,23 @@ def _synthesize_heuristically(text: str) -> Profile:
         elif sec_name == "projects":
             profile.projects = _parse_projects_section(sec_lines)
 
-    # 4. If skills were found inline (e.g. "Technical Skills: X, Y, Z" on a single
+    # 4. If education was not found in a designated section, scan the non-reference sections
+    if not profile.education:
+        valid_lines = []
+        for sec_name, start, end in sections:
+            if sec_name not in ("references", "publications", "awards", "interests", "languages", "certifications"):
+                valid_lines.extend(lines[start:end])
+        profile.education = _parse_education_section(valid_lines)
+
+    # Clean education out of summary if education lines were clumped into summary
+    if profile.summary and profile.education:
+        for edu in profile.education:
+            if edu.institution and edu.institution in profile.summary:
+                profile.summary = profile.summary.split(edu.institution)[0].strip()
+            elif edu.degree and edu.degree in profile.summary:
+                profile.summary = profile.summary.split(edu.degree)[0].strip()
+
+    # 5. If skills were found inline (e.g. "Technical Skills: X, Y, Z" on a single
     #    line in the header) and not via a section, try to extract them
     if not profile.skills:
         skills_match = re.search(
@@ -792,7 +825,7 @@ def _synthesize_heuristically(text: str) -> Profile:
                 s.strip() for s in re.split(r"[,•|;]", raw_skills) if s.strip()
             ]
 
-    # 5. If first_name / last_name still not set but full_name is, split it
+    # 6. If first_name / last_name still not set but full_name is, split it
     if profile.full_name and not profile.first_name:
         parts = profile.full_name.split()
         if parts:
