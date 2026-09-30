@@ -21,7 +21,6 @@ from qr_form_agent.core.kill_switch import (
 from qr_form_agent.core.state_machine import JobStatus
 from qr_form_agent.fill.snapshot import compute_snapshot_hash
 from qr_form_agent.mapping.cache import MappingCache
-from qr_form_agent.pipeline import FormAgentPipeline
 from qr_form_agent.profile.extractor import extract_text_from_pdf
 from qr_form_agent.profile.schema import Profile
 from qr_form_agent.profile.storage import load_verified_profile, save_verified_profile
@@ -149,6 +148,8 @@ async def scan_qr_image(file: UploadFile = File(...), auto_confirm: bool = Form(
     content = await file.read()
     with open(target_path, "wb") as f:
         f.write(content)
+
+    from qr_form_agent.pipeline import FormAgentPipeline
 
     pipeline = FormAgentPipeline(db=db)
     created_job_ids = pipeline.process_qr_image(
