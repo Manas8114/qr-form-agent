@@ -193,7 +193,23 @@ class FormAgentPipeline:
                 try:
                     self.db.update_job_status(job.id, JobStatus.VISITING)
                     page.goto(url, timeout=30000, wait_until="domcontentloaded")
-                    page.wait_for_timeout(1000)
+                    # Wait for SPA hydration: networkidle signals that React/Angular
+                    # has finished rendering. Fall back gracefully if it times out
+                    # (e.g. pages with persistent polling connections).
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=8000)
+                    except Exception:
+                        pass
+                    # Additional sentinel: wait for at least one visible input if
+                    # the page has any, so field extraction isn't done on skeleton HTML.
+                    try:
+                        page.wait_for_selector(
+                            'input:not([type="hidden"]), textarea, select',
+                            state="visible",
+                            timeout=5000,
+                        )
+                    except Exception:
+                        pass  # no inputs found — triage will classify LANDING_PAGE or DEAD
 
                     # 1. Triage Classification
                     t_res = classify_page(page, url)

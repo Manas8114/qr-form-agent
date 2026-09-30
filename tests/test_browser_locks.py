@@ -109,7 +109,7 @@ def test_submit_button_click_blocked_and_fails_navigation(browser_env):
 
 
 def test_route_guard_aborts_non_get_requests(browser_env):
-    """Verifies that during fill phase, non-GET network mutations are aborted."""
+    """Verifies that during fill phase, non-GET mutations to form action endpoints are aborted."""
     _, context = browser_env
     page = context.new_page()
 
@@ -121,6 +121,9 @@ def test_route_guard_aborts_non_get_requests(browser_env):
     form_html = (FIXTURES_DIR / "15_ajax_submit_form.html").read_text(encoding="utf-8")
     page.set_content(form_html)
 
+    # Register the fixture's form action endpoint so the guard knows to block it
+    guard.register_form_action("https://example.com/api/ajax-apply")
+
     # Attempt fetch POST
     page.click("#ajax-submit-btn")
     page.wait_for_timeout(400)
@@ -128,7 +131,7 @@ def test_route_guard_aborts_non_get_requests(browser_env):
     assert len(guard.blocked_requests) >= 1
     blocked = guard.blocked_requests[0]
     assert blocked.method == "POST"
-    assert "aborted during form fill phase" in blocked.reason
+    assert "form action endpoint" in blocked.reason or "aborted during form fill phase" in blocked.reason
 
     guard.uninstall()
     page.close()

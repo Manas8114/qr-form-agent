@@ -81,7 +81,7 @@ def test_route_guard_blocks_mutating_methods(browser_env):
     assert len(guard.blocked_requests) >= 1
     post_block = [b for b in guard.blocked_requests if b.method == "POST"]
     assert len(post_block) >= 1
-    assert "Non-GET request strictly aborted" in post_block[0].reason
+    assert "aborted during fill phase" in post_block[0].reason or "form action endpoint" in post_block[0].reason
 
     guard.uninstall()
     page.close()

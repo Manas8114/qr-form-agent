@@ -141,22 +141,39 @@ class FillRouteGuard:
                     if ips:
                         self._pinned_dns[host] = ips[0]
 
-            # 2. Mutating methods are strictly forbidden during the fill phase!
+            # 2. Block non-GET requests ONLY to known form action endpoints.
+            #    Allow same-origin XHR/fetch needed for SPA reactivity (conditional
+            #    field visibility, inline validation, step transitions, dropdown loads).
             if method not in ("GET", "OPTIONS", "HEAD"):
-                record = BlockedRequest(
-                    url=url,
-                    method=method,
-                    resource_type=req.resource_type,
-                    reason="Non-GET request strictly aborted during form fill phase",
+                clean_req_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}".lower()
+                is_submit_target = any(
+                    registered.endswith(parsed.path.lower()) or clean_req_url == registered
+                    for registered in self._registered_form_actions
+                ) if self._registered_form_actions else False
+
+                # Also hard-block any path that looks like a submission endpoint
+                path_lower = parsed.path.lower()
+                is_submit_path = any(
+                    sub in path_lower
+                    for sub in ("/submit", "/apply/submit", "/process_application", "/form_submit", "/applications")
                 )
-                self.blocked_requests.append(record)
-                logger.warning(
-                    "[ROUTE_GUARD_BLOCKED] Aborted %s request to %s during fill phase",
-                    method,
-                    url,
-                )
-                route.abort("blockedbyclient")
-                return
+
+                if is_submit_target or is_submit_path:
+                    record = BlockedRequest(
+                        url=url,
+                        method=method,
+                        resource_type=req.resource_type,
+                        reason=f"Non-GET request to form action endpoint aborted during fill phase ({parsed.path})",
+                    )
+                    self.blocked_requests.append(record)
+                    logger.warning(
+                        "[ROUTE_GUARD_BLOCKED] Aborted %s to form action %s",
+                        method,
+                        url,
+                    )
+                    route.abort("blockedbyclient")
+                    return
+                # Allow same-origin XHR (field validation, dropdown loading, etc.)
 
             # 3. Block GET form submissions with payload in query string
             if method == "GET" and self._is_get_form_submit(req):

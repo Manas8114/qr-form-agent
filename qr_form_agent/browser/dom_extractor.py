@@ -43,34 +43,55 @@ class FormExtractionResult(BaseModel):
     has_captcha: bool = False
     has_login_or_password: bool = False
     is_multi_step: bool = False
+    form_action: Optional[str] = Field(default=None, description="The action URL of the first form element on the page")
 
 
 # JavaScript snippet executed in page to extract rich DOM metadata
 EXTRACT_DOM_SCRIPT = """
 (() => {
     const fields = [];
-    const elements = Array.from(document.querySelectorAll('input, select, textarea'));
+
+    // Recursively collect all form elements including those inside Shadow DOMs
+    function collectElements(root) {
+        const found = Array.from(root.querySelectorAll('input, select, textarea'));
+        // Walk all shadow hosts in this subtree
+        const hosts = Array.from(root.querySelectorAll('*')).filter(
+            el => el.shadowRoot
+        );
+        for (const host of hosts) {
+            found.push(...collectElements(host.shadowRoot));
+        }
+        return found;
+    }
+
+    const elements = collectElements(document);
 
     function getLabelForElement(el) {
         // 1. Check aria-label
         if (el.getAttribute('aria-label')) {
             return el.getAttribute('aria-label').trim();
         }
-        // 2. Check aria-labelledby
+        // 2. Check aria-labelledby (search in both document and shadow root)
         const labelledBy = el.getAttribute('aria-labelledby');
         if (labelledBy) {
-            const labelEl = document.getElementById(labelledBy);
+            const labelEl = (el.getRootNode() || document).getElementById
+                ? (el.getRootNode()).getElementById
+                    ? (el.getRootNode()).getElementById(labelledBy)
+                    : document.getElementById(labelledBy)
+                : document.getElementById(labelledBy);
             if (labelEl) return labelEl.innerText.trim();
         }
-        // 3. Check label[for="id"]
+        // 3. Check label[for="id"] (in closest shadow root then document)
         if (el.id) {
-            const forLabel = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+            const searchRoot = el.getRootNode && el.getRootNode() instanceof ShadowRoot
+                ? el.getRootNode()
+                : document;
+            const forLabel = searchRoot.querySelector(`label[for="${CSS.escape(el.id)}"]`);
             if (forLabel) return forLabel.innerText.trim();
         }
         // 4. Check ancestor label
         const parentLabel = el.closest('label');
         if (parentLabel) {
-            // Clone and remove inputs to get text only
             const clone = parentLabel.cloneNode(true);
             clone.querySelectorAll('input, select, textarea').forEach(n => n.remove());
             const text = clone.innerText.trim();
@@ -98,9 +119,12 @@ EXTRACT_DOM_SCRIPT = """
             return;
         }
 
-        // Generate robust selector
+        // Generate robust selector — shadow-pierced elements get a data-automation-id or fallback
         let sel = '';
-        if (el.id) {
+        const dataAutoId = el.getAttribute('data-automation-id');
+        if (dataAutoId) {
+            sel = `[data-automation-id="${CSS.escape(dataAutoId)}"]`;
+        } else if (el.id) {
             sel = `#${CSS.escape(el.id)}`;
         } else if (el.name) {
             sel = `${tag}[name="${CSS.escape(el.name)}"]`;
@@ -119,7 +143,7 @@ EXTRACT_DOM_SCRIPT = """
         }
 
         fields.push({
-            field_id: el.id || el.name || `field_${index}`,
+            field_id: el.id || el.name || dataAutoId || `field_${index}`,
             tag_name: tag,
             field_type: type,
             name: el.name || null,
@@ -144,10 +168,18 @@ EXTRACT_DOM_SCRIPT = """
         '.wizard, .step-indicator, .progress-bar, [data-step], .stepper, [aria-label*="Step"]'
     );
 
+    // Resolve the primary form action URL
+    const formEl = document.querySelector('form');
+    let formAction = null;
+    if (formEl && formEl.action) {
+        formAction = formEl.action; // always absolute in browser context
+    }
+
     return {
         fields: fields,
         has_captcha: hasCaptcha,
-        is_multi_step: isMultiStep
+        is_multi_step: isMultiStep,
+        form_action: formAction
     };
 })();
 """
@@ -161,6 +193,7 @@ def extract_form_dom(page: Page) -> FormExtractionResult:
     raw_fields = raw_res.get("fields", [])
     has_captcha = raw_res.get("has_captcha", False)
     is_multi_step = raw_res.get("is_multi_step", False)
+    form_action = raw_res.get("form_action", None)
 
     field_descriptors: List[FormFieldDescriptor] = []
     has_login_or_pw = False
@@ -218,4 +251,5 @@ def extract_form_dom(page: Page) -> FormExtractionResult:
         has_captcha=has_captcha,
         has_login_or_password=has_login_or_pw,
         is_multi_step=is_multi_step,
+        form_action=form_action,
     )
