@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obscure Form Labels</title>
+</head>
+<body>
+  <h2>Submit Your Interest</h2>
+  <form id="obscure-form" action="/interest" method="POST">
+    <!-- Unlinked label preceding element -->
+    <span class="label">What is your legal name?</span>
+    <input type="text" id="cand_name" name="cand_name" title="What is your legal name?" />
+
+    <!-- Pure aria-label -->
+    <input type="email" id="c_email" name="c_email" aria-label="Electronic Mailing Address" />
+
+    <!-- Placeholder only -->
+    <input type="text" id="li_link" name="li_link" placeholder="Paste your LinkedIn URL here" />
+
+    <!-- Wrapped label -->
+    <label>
+      Tell us your contact telephone:
+      <input type="tel" id="mobile_no" name="mobile_no" />
+    </label>
+
+    <button type="submit" id="submit-obscure">Send</button>
+  </form>
+</body>
+</html>

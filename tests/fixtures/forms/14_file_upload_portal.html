@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume and Portfolio Upload Portal</title>
+</head>
+<body>
+  <h2>Document Submission</h2>
+  <form id="upload-form" action="/upload-documents" method="POST" enctype="multipart/form-data">
+    <label for="applicant_name">Candidate Name</label>
+    <input type="text" id="applicant_name" name="name" />
+
+    <label for="resume_file">Primary Resume (PDF/DOCX)</label>
+    <input type="file" id="resume_file" name="resume" accept=".pdf" />
+
+    <button type="submit" id="btn-upload">Upload & Apply</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Form Agent - Human Review Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <span>QR Form Agent</span>
+      <span class="brand-sub">| Human-in-the-Loop Gateway</span>
+    </div>
+    <div class="shield-badge">
+      <div class="pulse-dot"></div>
+      <span>SUBMISSION HARD-LOCK ENGAGED</span>
+    </div>
+  </header>
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Discovered Jobs</span>
+        <button id="refresh-btn" class="btn btn-refresh">↻ Refresh</button>
+      </div>
+      <ul class="jobs-list" id="jobs-list">
+        <!-- Rendered by JS -->
+      </ul>
+    </aside>
+
+    <!-- Workspace -->
+    <main class="workspace" id="workspace">
+      <div class="empty-state" id="no-job-selected">
+        <h3>Select a job from the sidebar to review</h3>
+        <p class="empty-state-desc">Pre-filled forms require explicit cryptographic approval before submission.</p>
+      </div>
+
+      <div id="job-details" class="job-details-panel">
+        <!-- Header Card -->
+        <div class="job-header-card">
+          <div class="job-title-group">
+            <h2 id="job-domain">careers.example.com</h2>
+            <a href="#" target="_blank" id="job-url" class="job-url-link">https://careers.example.com/apply</a>
+          </div>
+          <div class="job-header-meta">
+            <div class="hash-badge-container">
+              <span>Snapshot Hash:</span>
+              <span class="hash-val" id="job-hash">None</span>
+            </div>
+            <span class="status-pill" id="job-status-pill">AWAITING_APPROVAL</span>
+          </div>
+        </div>
+
+        <!-- Split View: Table & Screenshot -->
+        <div class="split-view">
+          <!-- Fields Table -->
+          <div class="card">
+            <div class="card-header">
+              <span>Proposed Field Values (Editable)</span>
+              <span class="field-count-badge" id="field-count">0 fields</span>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Value</th>
+                    <th>Source Key</th>
+                    <th>Conf.</th>
+                  </tr>
+                </thead>
+                <tbody id="fields-tbody">
+                  <!-- Rendered by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Screenshot Card -->
+          <div class="card">
+            <div class="card-header">
+              <span>Page Snapshot</span>
+            </div>
+            <div class="screenshot-view" id="screenshot-container">
+              <img id="form-screenshot" class="screenshot-img" src="" alt="Form Screenshot" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div class="action-footer">
+          <div class="footer-notice">
+            ⚠️ Approving will lock the current field values and compute a cryptographic SHA-256 fingerprint.
+          </div>
+          <div class="footer-actions">
+            <button class="btn btn-reject" id="reject-btn">Reject Job</button>
+            <button class="btn btn-approve" id="approve-btn">✓ Approve & Lock Snapshot</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

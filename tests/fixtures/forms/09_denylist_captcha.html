@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protected Job Application</title>
+</head>
+<body>
+  <h2>Bot Protected Application</h2>
+  <form id="captcha-form" action="/apply-protected" method="POST">
+    <label for="p_email">Your Email</label>
+    <input type="email" id="p_email" name="email" />
+
+    <!-- Google reCAPTCHA mock container -->
+    <div class="g-recaptcha" data-sitekey="6Le-w-fakeSiteKeyForTesting"></div>
+
+    <button type="submit">Submit Application</button>
+  </form>
+</body>
+</html>

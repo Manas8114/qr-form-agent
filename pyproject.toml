@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qr-form-agent"
+version = "0.1.0"
+description = "Human-in-the-loop agent that decodes QR codes, pre-fills forms with verified profile, and submits only after explicit human approval."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "zxing-cpp>=3.1.0",
+    "pymupdf>=1.23.0",
+    "pillow>=10.0.0",
+    "playwright>=1.40.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "httpx>=0.25.0",
+    "beautifulsoup4>=4.12.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "qrcode>=8.0",
+]
+
+[project.scripts]
+qr-form-agent = "qr_form_agent.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"

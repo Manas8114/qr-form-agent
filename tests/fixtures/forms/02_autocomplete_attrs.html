@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Application with Autocomplete Attributes</title>
+</head>
+<body>
+  <h1>Candidate Profile</h1>
+  <form id="ac-form" action="/api/v1/profile" method="POST">
+    <input type="text" id="fn" name="fn" autocomplete="given-name" placeholder="Given name" />
+    <input type="text" id="ln" name="ln" autocomplete="family-name" placeholder="Family name" />
+    <input type="email" id="em" name="em" autocomplete="email" placeholder="Email" />
+    <input type="tel" id="ph" name="ph" autocomplete="tel" placeholder="Telephone" />
+    <input type="text" id="addr" name="addr" autocomplete="street-address" placeholder="Address" />
+    <input type="text" id="cty" name="cty" autocomplete="address-level2" placeholder="City" />
+    <input type="text" id="zip" name="zip" autocomplete="postal-code" placeholder="Postal Code" />
+    <button type="submit" id="btn-save">Save Profile</button>
+  </form>
+</body>
+</html>

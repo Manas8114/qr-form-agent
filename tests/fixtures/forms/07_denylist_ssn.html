@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Background Verification Form</title>
+</head>
+<body>
+  <h2>Tax & Identity Verification</h2>
+  <form id="ssn-form" action="/verify-id" method="POST">
+    <label for="id_name">Full Name</label>
+    <input type="text" id="id_name" name="name" />
+
+    <label for="gov_ssn">Social Security Number (SSN)</label>
+    <input type="text" id="gov_ssn" name="ssn" placeholder="XXX-XX-XXXX" />
+
+    <button type="submit">Submit Verification</button>
+  </form>
+</body>
+</html>

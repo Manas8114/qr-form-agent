@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Application with Anti-Bot Honeypot</title>
+  <style>
+    .hp-field { display: none !important; }
+  </style>
+</head>
+<body>
+  <form id="hp-form" action="/apply-clean" method="POST">
+    <label for="real_name">Full Name</label>
+    <input type="text" id="real_name" name="full_name" />
+
+    <!-- Honeypot: Must remain blank! -->
+    <div class="hp-field">
+      <label for="hp_website">Leave this field blank</label>
+      <input type="text" id="hp_website" name="website" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <label for="real_email">Email</label>
+    <input type="email" id="real_email" name="email" />
+
+    <button type="submit" id="btn-clean-apply">Submit</button>
+  </form>
+</body>
+</html>
