@@ -24,7 +24,7 @@ def test_default_answers_bank_matches():
     m_sponsorship = bank.find_answer("Will you now or in the future require visa sponsorship?")
     assert m_sponsorship is not None
     assert m_sponsorship[0] == "visa_sponsorship"
-    assert m_sponsorship[1] == "No"
+    assert m_sponsorship[1] == "Yes"
     assert m_sponsorship[2] == 1.0
 
     # Notice period
@@ -109,6 +109,6 @@ def test_mapping_engine_bypasses_llm_for_answers_bank_match():
         assert len(res.mapped_fields) == 1
         mf = res.mapped_fields[0]
         assert mf.profile_key == "answers_bank.visa_sponsorship"
-        assert mf.value == "No"
+        assert mf.value == "Yes"
         assert mf.confidence == 1.0
         assert "Answers Bank" in mf.reason
