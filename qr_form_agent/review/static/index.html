@@ -56,7 +56,7 @@
     </div>
     <div class="stat-card">
       <span class="stat-label">Awaiting Approval</span>
-      <span class="stat-val" id="stat-awaiting" style="color: #fbbf24;">0</span>
+      <span class="stat-val stat-val-awaiting" id="stat-awaiting">0</span>
     </div>
     <div class="stat-card stat-alert">
       <span class="stat-label">Needs Human</span>
@@ -64,11 +64,11 @@
     </div>
     <div class="stat-card">
       <span class="stat-label">Approved</span>
-      <span class="stat-val" id="stat-approved" style="color: #34d399;">0</span>
+      <span class="stat-val stat-val-approved" id="stat-approved">0</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Submitted</span>
-      <span class="stat-val" id="stat-submitted" style="color: #a5b4fc;">0</span>
+      <span class="stat-val stat-val-submitted" id="stat-submitted">0</span>
     </div>
   </section>
 
@@ -172,30 +172,30 @@
           <div class="card-header">
             <span>Scan QR Codes & Launch Automation Pipeline</span>
           </div>
-          <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
-            <p style="color: var(--text-muted); font-size: 0.9rem;">
+          <div class="card-body">
+            <p class="text-muted-desc">
               Upload an image containing one or multiple QR codes. The pipeline will decode them, enforce the HTTPS/SSRF URL safety gate, pre-fill form fields, and stage for human approval.
             </p>
 
             <div class="drop-zone" id="qr-dropzone">
               <div class="drop-icon">📷</div>
-              <div style="font-weight: 600; font-size: 1.05rem;">Click or drag & drop QR image here</div>
-              <div style="color: var(--text-muted); font-size: 0.8rem;">Supports PNG, JPG, WEBP</div>
-              <input type="file" id="qr-file-input" class="file-input-hidden" accept="image/*" />
+              <div class="drop-title">Click or drag & drop QR image here</div>
+              <div class="drop-subtitle">Supports PNG, JPG, WEBP</div>
+              <input type="file" id="qr-file-input" class="file-input-hidden" accept="image/*" title="Upload QR Image" aria-label="Upload QR Image" />
             </div>
 
             <div class="scan-preview-card" id="scan-preview-box">
-              <div style="font-weight: 600;" id="scan-filename">image.png</div>
-              <div style="display: flex; gap: 1rem; align-items: center;">
-                <label style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-                  <input type="checkbox" id="auto-confirm-cb" checked />
+              <div class="preview-filename" id="scan-filename">image.png</div>
+              <div class="preview-controls">
+                <label class="auto-confirm-label">
+                  <input type="checkbox" id="auto-confirm-cb" checked title="Auto-confirm safe URLs" />
                   Auto-confirm safe URLs
                 </label>
                 <button class="btn btn-approve" id="start-scan-btn">▶ Process QR Codes & Pre-Fill</button>
               </div>
             </div>
 
-            <div id="scan-results-log" style="display: none; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; max-height: 250px; overflow-y: auto;">
+            <div id="scan-results-log" class="scan-log-box">
               <!-- Scan logs -->
             </div>
           </div>
@@ -209,13 +209,13 @@
         <div class="card">
           <div class="card-header">
             <span>Verified Candidate Profile</span>
-            <div style="display: flex; gap: 0.75rem;">
-              <input type="file" id="resume-file-input" class="file-input-hidden" accept=".pdf" />
+            <div class="profile-header-actions">
+              <input type="file" id="resume-file-input" class="file-input-hidden" accept=".pdf" title="Upload Resume PDF" aria-label="Upload Resume PDF" />
               <button class="btn btn-refresh" id="upload-resume-btn">📄 Upload New Resume (PDF)</button>
               <button class="btn btn-approve" id="save-profile-btn">💾 Save Verified Profile</button>
             </div>
           </div>
-          <div style="padding: 1.5rem;">
+          <div class="card-padded">
             <form id="profile-form" class="form-grid">
               <div>
                 <label class="form-label" for="prof-full-name">Full Name</label>
