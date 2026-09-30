@@ -3,109 +3,307 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Form Agent - Human Review Gateway</title>
+  <title>QR Form Agent - Frontend Control Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <!-- Header -->
   <header>
-    <div class="brand">
-      <div class="brand-icon">⚡</div>
-      <span>QR Form Agent</span>
-      <span class="brand-sub">| Human-in-the-Loop Gateway</span>
+    <div class="brand-wrapper">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <span>QR Form Agent</span>
+        <span class="brand-sub">Control Center</span>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs" aria-label="Main Navigation">
+        <button class="nav-tab active" data-tab="tab-review" id="tab-btn-review">
+          <span>📋 Form Review</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-launchpad" id="tab-btn-launchpad">
+          <span>🎯 QR Launchpad</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-profile" id="tab-btn-profile">
+          <span>👤 Candidate Profile</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-audit" id="tab-btn-audit">
+          <span>🛡️ Audit Stream</span>
+        </button>
+      </nav>
     </div>
-    <div class="shield-badge">
-      <div class="pulse-dot"></div>
-      <span>SUBMISSION HARD-LOCK ENGAGED</span>
+
+    <!-- Header Controls -->
+    <div class="header-controls">
+      <div class="shield-badge">
+        <div class="pulse-dot"></div>
+        <span>SUBMIT LOCK ACTIVE</span>
+      </div>
+      <button class="kill-switch-btn" id="kill-switch-toggle" title="Emergency halt all processing">
+        <span>🛑 Kill Switch: OFF</span>
+      </button>
     </div>
   </header>
 
-  <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-title">Discovered Jobs</span>
-        <button id="refresh-btn" class="btn btn-refresh">↻ Refresh</button>
-      </div>
-      <ul class="jobs-list" id="jobs-list">
-        <!-- Rendered by JS -->
-      </ul>
-    </aside>
+  <!-- Metric Strip -->
+  <section class="stats-strip" aria-label="Pipeline Statistics">
+    <div class="stat-card">
+      <span class="stat-label">Total Jobs</span>
+      <span class="stat-val" id="stat-total">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Awaiting Approval</span>
+      <span class="stat-val" id="stat-awaiting" style="color: #fbbf24;">0</span>
+    </div>
+    <div class="stat-card stat-alert">
+      <span class="stat-label">Needs Human</span>
+      <span class="stat-val" id="stat-needs-human">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Approved</span>
+      <span class="stat-val" id="stat-approved" style="color: #34d399;">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Submitted</span>
+      <span class="stat-val" id="stat-submitted" style="color: #a5b4fc;">0</span>
+    </div>
+  </section>
 
-    <!-- Workspace -->
-    <main class="workspace" id="workspace">
-      <div class="empty-state" id="no-job-selected">
-        <h3>Select a job from the sidebar to review</h3>
-        <p class="empty-state-desc">Pre-filled forms require explicit cryptographic approval before submission.</p>
-      </div>
+  <!-- Main Viewport -->
+  <main class="main-viewport">
 
-      <div id="job-details" class="job-details-panel">
-        <!-- Header Card -->
-        <div class="job-header-card">
-          <div class="job-title-group">
-            <h2 id="job-domain">careers.example.com</h2>
-            <a href="#" target="_blank" id="job-url" class="job-url-link">https://careers.example.com/apply</a>
+    <!-- VIEW 1: Form Review Dashboard -->
+    <section class="view-section active" id="tab-review">
+      <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-title">Discovered Jobs</span>
+            <button id="refresh-btn" class="btn btn-refresh">↻ Refresh</button>
           </div>
-          <div class="job-header-meta">
-            <div class="hash-badge-container">
-              <span>Snapshot Hash:</span>
-              <span class="hash-val" id="job-hash">None</span>
+          <ul class="jobs-list" id="jobs-list">
+            <!-- Populated via JS -->
+          </ul>
+        </aside>
+
+        <!-- Workspace -->
+        <div class="workspace">
+          <div class="empty-state" id="no-job-selected">
+            <h3>Select a job from the sidebar to review</h3>
+            <p class="empty-state-desc">Pre-filled forms require explicit cryptographic approval before submission.</p>
+          </div>
+
+          <div id="job-details" class="job-details-panel">
+            <!-- Header Card -->
+            <div class="job-header-card">
+              <div class="job-title-group">
+                <h2 id="job-domain">careers.example.com</h2>
+                <a href="#" target="_blank" rel="noopener noreferrer" id="job-url" class="job-url-link">https://careers.example.com/apply</a>
+              </div>
+              <div class="job-header-meta">
+                <div class="hash-badge-container">
+                  <span>Snapshot Hash:</span>
+                  <span class="hash-val" id="job-hash">None</span>
+                </div>
+                <span class="status-pill" id="job-status-pill">AWAITING_APPROVAL</span>
+              </div>
             </div>
-            <span class="status-pill" id="job-status-pill">AWAITING_APPROVAL</span>
+
+            <!-- Split View: Table & Screenshot -->
+            <div class="split-view">
+              <!-- Fields Table -->
+              <div class="card">
+                <div class="card-header">
+                  <span>Proposed Field Values (Editable)</span>
+                  <span class="field-count-badge" id="field-count">0 fields</span>
+                </div>
+                <div class="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Field</th>
+                        <th>Value</th>
+                        <th>Source Key</th>
+                        <th>Conf.</th>
+                      </tr>
+                    </thead>
+                    <tbody id="fields-tbody">
+                      <!-- Populated via JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Screenshot Card -->
+              <div class="card">
+                <div class="card-header">
+                  <span>Page Snapshot</span>
+                </div>
+                <div class="screenshot-view">
+                  <img id="form-screenshot" class="screenshot-img" src="" alt="Form Screenshot" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Footer -->
+            <div class="action-footer">
+              <div class="footer-notice" id="action-notice">
+                ⚠️ Approving will lock the current field values and compute a cryptographic SHA-256 fingerprint.
+              </div>
+              <div class="footer-actions">
+                <button class="btn btn-takeover" id="takeover-btn">🚀 Headful Takeover</button>
+                <button class="btn btn-reject" id="reject-btn">Reject Job</button>
+                <button class="btn btn-approve" id="approve-btn">✓ Approve & Lock Snapshot</button>
+                <button class="btn btn-submit-action" id="submit-btn">⚡ Submit Approved Form</button>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+    </section>
 
-        <!-- Split View: Table & Screenshot -->
-        <div class="split-view">
-          <!-- Fields Table -->
-          <div class="card">
-            <div class="card-header">
-              <span>Proposed Field Values (Editable)</span>
-              <span class="field-count-badge" id="field-count">0 fields</span>
-            </div>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Value</th>
-                    <th>Source Key</th>
-                    <th>Conf.</th>
-                  </tr>
-                </thead>
-                <tbody id="fields-tbody">
-                  <!-- Rendered by JS -->
-                </tbody>
-              </table>
-            </div>
+    <!-- VIEW 2: QR Launchpad -->
+    <section class="view-section" id="tab-launchpad">
+      <div class="launchpad-container">
+        <div class="card">
+          <div class="card-header">
+            <span>Scan QR Codes & Launch Automation Pipeline</span>
           </div>
+          <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+              Upload an image containing one or multiple QR codes. The pipeline will decode them, enforce the HTTPS/SSRF URL safety gate, pre-fill form fields, and stage for human approval.
+            </p>
 
-          <!-- Screenshot Card -->
-          <div class="card">
-            <div class="card-header">
-              <span>Page Snapshot</span>
+            <div class="drop-zone" id="qr-dropzone">
+              <div class="drop-icon">📷</div>
+              <div style="font-weight: 600; font-size: 1.05rem;">Click or drag & drop QR image here</div>
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Supports PNG, JPG, WEBP</div>
+              <input type="file" id="qr-file-input" class="file-input-hidden" accept="image/*" />
             </div>
-            <div class="screenshot-view" id="screenshot-container">
-              <img id="form-screenshot" class="screenshot-img" src="" alt="Form Screenshot" />
-            </div>
-          </div>
-        </div>
 
-        <!-- Action Footer -->
-        <div class="action-footer">
-          <div class="footer-notice">
-            ⚠️ Approving will lock the current field values and compute a cryptographic SHA-256 fingerprint.
-          </div>
-          <div class="footer-actions">
-            <button class="btn btn-reject" id="reject-btn">Reject Job</button>
-            <button class="btn btn-approve" id="approve-btn">✓ Approve & Lock Snapshot</button>
+            <div class="scan-preview-card" id="scan-preview-box">
+              <div style="font-weight: 600;" id="scan-filename">image.png</div>
+              <div style="display: flex; gap: 1rem; align-items: center;">
+                <label style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                  <input type="checkbox" id="auto-confirm-cb" checked />
+                  Auto-confirm safe URLs
+                </label>
+                <button class="btn btn-approve" id="start-scan-btn">▶ Process QR Codes & Pre-Fill</button>
+              </div>
+            </div>
+
+            <div id="scan-results-log" style="display: none; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; max-height: 250px; overflow-y: auto;">
+              <!-- Scan logs -->
+            </div>
           </div>
         </div>
       </div>
-    </main>
-  </div>
+    </section>
+
+    <!-- VIEW 3: Candidate Profile -->
+    <section class="view-section" id="tab-profile">
+      <div class="profile-container">
+        <div class="card">
+          <div class="card-header">
+            <span>Verified Candidate Profile</span>
+            <div style="display: flex; gap: 0.75rem;">
+              <input type="file" id="resume-file-input" class="file-input-hidden" accept=".pdf" />
+              <button class="btn btn-refresh" id="upload-resume-btn">📄 Upload New Resume (PDF)</button>
+              <button class="btn btn-approve" id="save-profile-btn">💾 Save Verified Profile</button>
+            </div>
+          </div>
+          <div style="padding: 1.5rem;">
+            <form id="profile-form" class="form-grid">
+              <div>
+                <label class="form-label" for="prof-full-name">Full Name</label>
+                <input class="form-control" type="text" id="prof-full-name" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-email">Email Address</label>
+                <input class="form-control" type="email" id="prof-email" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-phone">Phone Number</label>
+                <input class="form-control" type="tel" id="prof-phone" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-address">Street Address</label>
+                <input class="form-control" type="text" id="prof-address" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-city">City</label>
+                <input class="form-control" type="text" id="prof-city" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-state">State / Province</label>
+                <input class="form-control" type="text" id="prof-state" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-postal">Postal / ZIP Code</label>
+                <input class="form-control" type="text" id="prof-postal" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-country">Country</label>
+                <input class="form-control" type="text" id="prof-country" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-linkedin">LinkedIn URL</label>
+                <input class="form-control" type="url" id="prof-linkedin" />
+              </div>
+              <div>
+                <label class="form-label" for="prof-github">GitHub URL</label>
+                <input class="form-control" type="url" id="prof-github" />
+              </div>
+              <div class="form-group-full">
+                <label class="form-label" for="prof-portfolio">Portfolio / Personal Website</label>
+                <input class="form-control" type="url" id="prof-portfolio" />
+              </div>
+              <div class="form-group-full">
+                <label class="form-label" for="prof-skills">Skills (comma-separated)</label>
+                <input class="form-control" type="text" id="prof-skills" />
+              </div>
+              <div class="form-group-full">
+                <label class="form-label" for="prof-summary">Professional Summary</label>
+                <textarea class="form-control" id="prof-summary" rows="3"></textarea>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: Audit Stream -->
+    <section class="view-section" id="tab-audit">
+      <div class="audit-container">
+        <div class="card">
+          <div class="card-header">
+            <span>Cryptographic Security & System Audit Trail</span>
+            <button class="btn btn-refresh" id="refresh-audit-btn">↻ Refresh Logs</button>
+          </div>
+          <div class="table-container">
+            <table class="audit-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Job ID</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Payload Summary</th>
+                </tr>
+              </thead>
+              <tbody id="audit-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
 
   <script src="/static/app.js"></script>
 </body>
