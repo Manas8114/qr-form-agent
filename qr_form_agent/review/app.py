@@ -152,20 +152,51 @@ async def scan_qr_image(file: UploadFile = File(...), auto_confirm: bool = Form(
     with open(target_path, "wb") as f:
         f.write(content)
 
-    from qr_form_agent.pipeline import FormAgentPipeline
+    try:
+        from qr_form_agent.pipeline import FormAgentPipeline
 
-    pipeline = FormAgentPipeline(db=db)
-    created_job_ids = pipeline.process_qr_image(
-        image_path=target_path,
-        auto_confirm_urls=auto_confirm,
-    )
+        pipeline = FormAgentPipeline(db=db)
+        created_job_ids = pipeline.process_qr_image(
+            image_path=target_path,
+            auto_confirm_urls=auto_confirm,
+        )
 
-    return {
-        "success": True,
-        "jobs_created": created_job_ids,
-        "count": len(created_job_ids),
-    }
+        return {
+            "success": True,
+            "jobs_created": created_job_ids,
+            "count": len(created_job_ids),
+        }
+    except Exception as e:
+        logger.exception("Pipeline scan-image failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
 
+
+@app.post("/api/pipeline/scan-qr-only")
+async def scan_qr_only(file: UploadFile = File(...)):
+    """Fast QR-only decode: returns all URLs found in the image without running the full pipeline."""
+    upload_dir = settings.data_dir / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    target_path = upload_dir / file.filename
+
+    content = await file.read()
+    with open(target_path, "wb") as f:
+        f.write(content)
+
+    try:
+        from qr_form_agent.qr.decoder import decode_qr_codes
+
+        scan_result = decode_qr_codes(target_path)
+
+        return {
+            "success": True,
+            "urls": scan_result.urls,
+            "total_found": scan_result.total_found,
+            "unique_count": scan_result.unique_count,
+            "items": [item.model_dump() for item in scan_result.items],
+        }
+    except Exception as e:
+        logger.exception("QR-only scan failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"QR scan error: {str(e)}")
 
 # -------------------------------------------------------------
 # Jobs & Review

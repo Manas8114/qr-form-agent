@@ -3,7 +3,7 @@
 import io
 import logging
 from pathlib import Path
-from typing import List, Set, Union
+from typing import Any, List, Optional, Set, Tuple, Union
 from PIL import Image
 from pydantic import BaseModel, Field
 import zxingcpp
@@ -18,10 +18,19 @@ from qr_form_agent.qr.preprocessors import (
 logger = logging.getLogger(__name__)
 
 
+class QRPosition(BaseModel):
+    """Bounding box position of a detected QR code in the image."""
+    min_x: int = 0
+    min_y: int = 0
+    max_x: int = 0
+    max_y: int = 0
+
+
 class QRItem(BaseModel):
     text: str = Field(description="Decoded QR payload text/URL")
     format: str = Field(default="QRCode", description="Barcode format name")
     detection_method: str = Field(description="Pipeline stage that successfully decoded the QR code")
+    position: Optional[QRPosition] = Field(default=None, description="Bounding box position in the image")
 
 
 class QRScanResult(BaseModel):
@@ -29,6 +38,11 @@ class QRScanResult(BaseModel):
     urls: List[str] = Field(default_factory=list, description="Deduplicated decoded URLs/payloads")
     total_found: int = Field(default=0, description="Total QR codes decoded before deduplication")
     unique_count: int = Field(default=0, description="Count of unique QR payloads detected")
+
+    @property
+    def barcodes(self) -> List[QRItem]:
+        """Alias for items — backward compatibility with label OCR."""
+        return self.items
 
 
 def _read_image(image_input: Union[str, Path, bytes, Image.Image]) -> Image.Image:
@@ -76,11 +90,25 @@ def decode_qr_codes(
             for res in results:
                 raw_text = res.text.strip()
                 if raw_text:
+                    # Extract position data for label OCR spatial lookup
+                    position = None
+                    try:
+                        pts = res.position
+                        position = QRPosition(
+                            min_x=min(p.x for p in (pts.top_left, pts.top_right, pts.bottom_right, pts.bottom_left)),
+                            min_y=min(p.y for p in (pts.top_left, pts.top_right, pts.bottom_right, pts.bottom_left)),
+                            max_x=max(p.x for p in (pts.top_left, pts.top_right, pts.bottom_right, pts.bottom_left)),
+                            max_y=max(p.y for p in (pts.top_left, pts.top_right, pts.bottom_right, pts.bottom_left)),
+                        )
+                    except Exception:
+                        pass
+
                     found_items.append(
                         QRItem(
                             text=raw_text,
                             format=res.format.name,
                             detection_method=method_name,
+                            position=position,
                         )
                     )
                     seen_texts.add(raw_text)

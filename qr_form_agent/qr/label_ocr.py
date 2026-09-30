@@ -139,26 +139,49 @@ def parse_metadata_from_text(raw_text: str) -> Dict[str, Optional[str]]:
 
 def extract_qr_labels(image: Image.Image, barcodes: List[Any]) -> List[QRLabelMetadata]:
     """
-    Given a PIL Image and a list of detected zxing-cpp Barcode objects,
+    Given a PIL Image and a list of QRItem objects (with position data),
     extracts spatial OCR regions surrounding each QR code and extracts label metadata.
+    Accepts both QRItem Pydantic models and raw zxing-cpp barcode objects.
     """
     results: List[QRLabelMetadata] = []
     width, height = image.size
 
     for barcode in barcodes:
-        url = barcode.text
+        # Get the URL text
+        url = barcode.text if hasattr(barcode, "text") else str(barcode)
         if not url:
             continue
 
-        # Compute bounding box of QR code
-        points = barcode.position
-        min_x = min(p.x for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
-        max_x = max(p.x for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
-        min_y = min(p.y for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
-        max_y = max(p.y for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
+        # Extract bounding box from QRItem.position or raw zxing position
+        try:
+            if hasattr(barcode, "position") and barcode.position is not None:
+                pos = barcode.position
+                # QRItem with QRPosition model
+                if hasattr(pos, "min_x"):
+                    min_x, min_y = pos.min_x, pos.min_y
+                    max_x, max_y = pos.max_x, pos.max_y
+                else:
+                    # Raw zxing-cpp position object
+                    points = pos
+                    min_x = min(p.x for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
+                    max_x = max(p.x for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
+                    min_y = min(p.y for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
+                    max_y = max(p.y for p in (points.top_left, points.top_right, points.bottom_right, points.bottom_left))
+            else:
+                # No position data available — skip label OCR for this barcode
+                results.append(QRLabelMetadata(url=url))
+                continue
+        except Exception as e:
+            logger.debug("Cannot extract position for barcode %s: %s", url[:50], e)
+            results.append(QRLabelMetadata(url=url))
+            continue
 
         qr_w = max_x - min_x
         qr_h = max_y - min_y
+
+        if qr_w <= 0 or qr_h <= 0:
+            results.append(QRLabelMetadata(url=url))
+            continue
 
         # Region above QR code (header label: Company, Role)
         top_box = (
