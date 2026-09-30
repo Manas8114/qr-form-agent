@@ -123,6 +123,7 @@ qr-form-agent extract-profile --resume path/to/resume.pdf
 #### Step 2: One-Command Full Flow (Run)
 
 Execute the entire end-to-end pipeline with a single command:
+
 - Reads printed labels & notices outside each QR code
 - Diffs against previously seen URLs (batch re-scan)
 - Pre-triages each destination (`FORM`, `LANDING_PAGE`, `LOGIN_WALL`, `CLOSED`, `DEAD`)
@@ -151,7 +152,8 @@ qr-form-agent review
 ```
 
 Navigate to `http://localhost:8000` (desktop or mobile):
-- **Camera Upload:** Directly photograph or upload career boards from your phone camera (`capture="environment"`).
+
+- **Camera Upload:** Directly photograph or upload career boards from your mobile device camera or desktop files.
 - **Side-by-Side Review:** Live screenshot alongside pre-filled values, source profile field, and confidence indicators. Low-confidence fields are sorted to the top.
 - **Bulk Approve:** One-click approval for all high-confidence jobs.
 - **"Continue Here" Handoff:** Launch headful browser takeover for CAPTCHAs or login walls and resume automatically.
